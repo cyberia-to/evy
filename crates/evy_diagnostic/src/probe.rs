@@ -128,6 +128,7 @@ impl PmuProbe {
     /// Compute the delta between two snapshots.
     pub fn delta(&self, a: &Snapshot, b: &Snapshot) -> SnapshotDelta {
         let wall_ns = b.wall.saturating_duration_since(a.wall).as_nanos() as u64;
+        #[allow(unused_mut)]
         let mut out = SnapshotDelta {
             wall_ns,
             ..Default::default()
