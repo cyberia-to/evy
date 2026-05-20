@@ -5,6 +5,13 @@ version = 4
 [[package]]
 name = "acpu"
 version = "0.2.0"
+dependencies = [
+ "unimem 0.2.0",
+]
+
+[[package]]
+name = "acpu"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81089272e2a248781b1e2c38ad7247a98bea63a602c0a445dc63e955b2035375"
 dependencies = [
@@ -1697,7 +1704,7 @@ dependencies = [
 name = "cyb-nebu"
 version = "0.1.0"
 dependencies = [
- "acpu",
+ "acpu 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "strata-compute",
  "strata-core",
  "strata-ext",
@@ -1962,6 +1969,15 @@ dependencies = [
  "cyb-nebu",
  "cyber-hemera",
  "evy_platform_caps",
+]
+
+[[package]]
+name = "evy_engine_tasks"
+version = "0.1.0"
+dependencies = [
+ "acpu 0.2.0",
+ "evy_platform_caps",
+ "rane",
 ]
 
 [[package]]
@@ -3524,6 +3540,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "513962919efc330f829edb2535844d1b912b0fbe2ca165d613e4e8788bb05a5a"
 dependencies = [
  "rand_core",
+]
+
+[[package]]
+name = "rane"
+version = "0.2.0"
+dependencies = [
+ "acpu 0.2.0",
+ "unimem 0.2.0",
 ]
 
 [[package]]
