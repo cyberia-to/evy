@@ -2016,6 +2016,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "evy_semcon"
+version = "0.1.0"
+dependencies = [
+ "cyber-hemera",
+ "evy_ecs_storage",
+]
+
+[[package]]
 name = "exr"
 version = "1.74.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
