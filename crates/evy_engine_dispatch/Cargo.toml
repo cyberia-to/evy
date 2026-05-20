@@ -1,0 +1,18 @@
+[package]
+name = "evy_engine_dispatch"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "evy: unified DAG scheduler over the 4 compute engines (Cpu/Amx/Gpu/Ane)"
+
+[dependencies]
+evy_platform_caps = { path = "../evy_platform_caps" }
+evy_ecs_storage = { path = "../evy_ecs_storage" }
+evy_engine_tasks = { path = "../evy_engine_tasks" }
+
+[dev-dependencies]
+bbg = { workspace = true }
+
+[features]
+default = []
+backend-unimem = ["evy_ecs_storage/backend-unimem"]

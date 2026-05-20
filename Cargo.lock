@@ -1972,6 +1972,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "evy_engine_dispatch"
+version = "0.1.0"
+dependencies = [
+ "bbg",
+ "evy_ecs_storage",
+ "evy_engine_tasks",
+ "evy_platform_caps",
+]
+
+[[package]]
 name = "evy_engine_tasks"
 version = "0.1.0"
 dependencies = [
