@@ -2002,6 +2002,13 @@ name = "evy_prysm_core"
 version = "0.1.0"
 
 [[package]]
+name = "evy_radio"
+version = "0.1.0"
+dependencies = [
+ "evy_ecs_storage",
+]
+
+[[package]]
 name = "exr"
 version = "1.74.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

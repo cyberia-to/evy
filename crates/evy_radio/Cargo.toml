@@ -1,0 +1,9 @@
+[package]
+name = "evy_radio"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "evy: channel bridge to the radio (iroh) P2P daemon — out-of-engine tokio runtime"
+
+[dependencies]
+evy_ecs_storage = { path = "../evy_ecs_storage" }
