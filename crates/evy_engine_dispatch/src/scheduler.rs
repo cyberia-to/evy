@@ -31,10 +31,10 @@ pub struct SchedulePlan {
 pub struct DispatchScheduler {
     capabilities: PlatformCapabilities,
     /// Worker pool for `Engine::Amx`. None if the platform lacks AMX.
-    #[allow(dead_code)] // wired up; session 2 will route Amx dispatches here
+    /// Exposed to nodes via `DispatchCtx::amx_pool` during `dispatch_frame`.
     amx_pool: Option<AmxTaskPool>,
     /// Worker pool for `Engine::Ane`. None if the platform lacks ANE.
-    #[allow(dead_code)] // wired up; session 2 will route Ane dispatches here
+    /// Exposed to nodes via `DispatchCtx::ane_pool` during `dispatch_frame`.
     ane_pool: Option<AneTaskPool>,
 }
 
@@ -97,18 +97,34 @@ impl DispatchScheduler {
 
     /// Dispatch all nodes for one frame.
     ///
-    /// Session 1 implementation: sequential dispatch in topo order on the
-    /// calling thread. Session 2 will batch by engine and dispatch in
-    /// parallel where the access sets allow.
-    pub fn dispatch_frame(
-        &mut self,
+    /// Session 2 implementation: sequential dispatch in topo order on the
+    /// calling thread. The scheduler attaches its `AmxTaskPool` and
+    /// `AneTaskPool` references to `DispatchCtx` so individual nodes can
+    /// route their internal work to the right engine pool via
+    /// `ctx.amx_pool.unwrap().spawn(...)` / `ctx.ane_pool.unwrap().spawn(...)`.
+    ///
+    /// Future sessions will add parallel dispatch across non-conflicting
+    /// layers once cross-engine sync primitives are wired (depends on the
+    /// aruminium device-sharing proposal, step 3).
+    pub fn dispatch_frame<'a>(
+        &'a mut self,
         nodes: &mut [Box<dyn DispatchNode>],
         plan: &SchedulePlan,
-        ctx: &mut DispatchCtx<'_>,
+        ctx: &mut DispatchCtx<'a>,
     ) {
+        // Attach engine pool references into the ctx for this frame's
+        // dispatches. Pools live on the scheduler; ctx borrows them.
+        ctx.amx_pool = self.amx_pool.as_ref();
+        ctx.ane_pool = self.ane_pool.as_ref();
+
         for &idx in &plan.order {
             nodes[idx].dispatch(ctx);
         }
+
+        // Drop the borrows when the frame ends. (Bevy systems wouldn't
+        // typically read ctx after dispatch returns; this is defensive.)
+        ctx.amx_pool = None;
+        ctx.ane_pool = None;
     }
 
     /// Commit the storage layer at a tick boundary. Returns the shard
@@ -395,6 +411,73 @@ mod tests {
         // empty commit is deterministic; repeat must produce the same root.
         let root2 = scheduler.commit_tick(&mut ctx);
         assert_eq!(root, root2);
+    }
+
+    /// Node that spawns AMX work via the pool reference in ctx and writes
+    /// the result into ShardStorage. Demonstrates session 2 routing.
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    struct AmxComputeNode {
+        result_log: std::sync::Arc<std::sync::Mutex<Vec<u64>>>,
+    }
+
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    impl DispatchNode for AmxComputeNode {
+        fn engine(&self) -> Engine {
+            Engine::Amx
+        }
+        fn reads(&self) -> &[ShardRef] {
+            &[]
+        }
+        fn writes(&self) -> &[ShardRef] {
+            &[]
+        }
+        fn commit_policy(&self) -> CommitPolicy {
+            CommitPolicy::None
+        }
+        fn dispatch(&mut self, ctx: &mut DispatchCtx<'_>) {
+            let pool = ctx.amx_pool.expect("AMX pool must be present on Apple Silicon");
+            // Simulate AMX-heavy work: the closure runs on a worker with
+            // AMX active. For the test we just return a sentinel.
+            let rx = pool.spawn(|| 0xCAFEBABEu64);
+            let val = rx.recv().unwrap();
+            self.result_log.lock().unwrap().push(val);
+        }
+    }
+
+    #[test]
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    fn node_can_spawn_work_on_amx_pool_via_ctx() {
+        let log = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let nodes: Vec<Box<dyn DispatchNode>> =
+            vec![Box::new(AmxComputeNode { result_log: log.clone() })];
+
+        let mut scheduler = fresh_scheduler();
+        let plan = scheduler
+            .plan(&nodes, FallbackPolicy::Required)
+            .unwrap();
+        let mut storage = fresh_storage();
+        let mut ctx = DispatchCtx::new(&mut storage, 0, 0);
+        let mut nodes = nodes;
+        scheduler.dispatch_frame(&mut nodes, &plan, &mut ctx);
+
+        assert_eq!(*log.lock().unwrap(), vec![0xCAFEBABEu64]);
+    }
+
+    #[test]
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    fn ctx_pools_are_none_outside_dispatch_frame() {
+        // After dispatch_frame returns, the ctx's pool references are
+        // cleared. Calling dispatch_frame again re-attaches them.
+        let mut scheduler = fresh_scheduler();
+        let mut storage = fresh_storage();
+        let mut ctx = DispatchCtx::new(&mut storage, 0, 0);
+        let nodes: Vec<Box<dyn DispatchNode>> = vec![];
+        let plan = scheduler.plan(&nodes, FallbackPolicy::Skip).unwrap();
+        let mut nodes = nodes;
+        scheduler.dispatch_frame(&mut nodes, &plan, &mut ctx);
+
+        assert!(ctx.amx_pool.is_none());
+        assert!(ctx.ane_pool.is_none());
     }
 
     #[test]
