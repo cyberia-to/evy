@@ -1962,6 +1962,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "evy_diagnostic"
+version = "0.1.0"
+dependencies = [
+ "acpu 0.2.0",
+]
+
+[[package]]
 name = "evy_ecs_storage"
 version = "0.1.0"
 dependencies = [

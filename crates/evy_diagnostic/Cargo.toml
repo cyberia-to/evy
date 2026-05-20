@@ -1,0 +1,19 @@
+[package]
+name = "evy_diagnostic"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "evy: per-system measurements — wall time always, PMU counters optional"
+
+[dependencies]
+
+# acpu (PMU access) is Apple Silicon only AND requires root or the
+# dtrace_proc entitlement. Behind a feature flag and target gate.
+[target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
+acpu = { workspace = true, optional = true }
+
+[features]
+default = []
+# Enable hardware PMU counters via acpu. Build will fail on non-Apple-Silicon
+# even with this feature requested.
+pmu = ["dep:acpu"]
