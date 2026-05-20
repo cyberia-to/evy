@@ -1,0 +1,8 @@
+[package]
+name = "evy_prysm_core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "evy: prysm layout protocol core (axioms Π, Φ, K)"
+
+[dependencies]
