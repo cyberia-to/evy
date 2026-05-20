@@ -1,0 +1,93 @@
+[workspace]
+resolver = "2"
+members = ["crates/*", "forks/*"]
+
+# evy owns 16 bevy crate forks (in `forks/`). The other ~20 bevy crates we
+# adopt intact come from crates.io. The [patch.crates-io] section below
+# redirects any transitive dep on a forked crate (e.g. crates.io's bevy_winit
+# depending on bevy_ecs) to OUR fork instead of crates.io's version.
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89.0"
+license = "Cyber"
+repository = "https://github.com/cyberia-to/evy"
+
+[workspace.dependencies]
+# honeycrisp engines (path deps to sibling repo)
+unimem = { path = "../honeycrisp/unimem" }
+acpu = { path = "../honeycrisp/acpu" }
+aruminium = { path = "../honeycrisp/aruminium" }
+rane = { path = "../honeycrisp/rane" }
+
+# soft3 components (path deps to sibling repos)
+bbg = { path = "../bbg/rs" }
+hemera = { package = "cyber-hemera", path = "../hemera/rs" }
+nebu = { package = "cyb-nebu", path = "../strata/nebu/rs" }
+
+# bevy adopted-intact crates (versioned from crates.io)
+bevy_app = "=0.18.1"
+bevy_winit = "=0.18.1"
+bevy_window = "=0.18.1"
+bevy_input = "=0.18.1"
+bevy_state = "=0.18.1"
+bevy_time = "=0.18.1"
+bevy_log = "=0.18.1"
+bevy_math = "=0.18.1"
+bevy_reflect = "=0.18.1"
+bevy_color = "=0.18.1"
+bevy_camera = "=0.18.1"
+bevy_light = "=0.18.1"
+bevy_text = "=0.18.1"
+bevy_picking = "=0.18.1"
+bevy_input_focus = "=0.18.1"
+bevy_gilrs = "=0.18.1"
+bevy_a11y = "=0.18.1"
+bevy_platform = "=0.18.1"
+bevy_ptr = "=0.18.1"
+bevy_utils = "=0.18.1"
+
+# bevy forked crates (path deps into evy/forks/)
+bevy_ecs = { path = "forks/bevy_ecs" }
+bevy_render = { path = "forks/bevy_render" }
+bevy_pbr = { path = "forks/bevy_pbr" }
+bevy_core_pipeline = { path = "forks/bevy_core_pipeline" }
+bevy_anti_alias = { path = "forks/bevy_anti_alias" }
+bevy_post_process = { path = "forks/bevy_post_process" }
+bevy_animation = { path = "forks/bevy_animation" }
+bevy_transform = { path = "forks/bevy_transform" }
+bevy_mesh = { path = "forks/bevy_mesh" }
+bevy_image = { path = "forks/bevy_image" }
+bevy_tasks = { path = "forks/bevy_tasks" }
+bevy_diagnostic = { path = "forks/bevy_diagnostic" }
+bevy_gizmos = { path = "forks/bevy_gizmos" }
+bevy_gizmos_render = { path = "forks/bevy_gizmos_render" }
+bevy_sprite = { path = "forks/bevy_sprite" }
+bevy_sprite_render = { path = "forks/bevy_sprite_render" }
+
+# Redirect any crates.io-sourced bevy crate that transitively depends on
+# a forked crate to use OUR fork. Without this, crates.io bevy_winit
+# would pull crates.io bevy_ecs (not ours).
+[patch.crates-io]
+bevy_ecs = { path = "forks/bevy_ecs" }
+bevy_render = { path = "forks/bevy_render" }
+bevy_pbr = { path = "forks/bevy_pbr" }
+bevy_core_pipeline = { path = "forks/bevy_core_pipeline" }
+bevy_anti_alias = { path = "forks/bevy_anti_alias" }
+bevy_post_process = { path = "forks/bevy_post_process" }
+bevy_animation = { path = "forks/bevy_animation" }
+bevy_transform = { path = "forks/bevy_transform" }
+bevy_mesh = { path = "forks/bevy_mesh" }
+bevy_image = { path = "forks/bevy_image" }
+bevy_tasks = { path = "forks/bevy_tasks" }
+bevy_diagnostic = { path = "forks/bevy_diagnostic" }
+bevy_gizmos = { path = "forks/bevy_gizmos" }
+bevy_gizmos_render = { path = "forks/bevy_gizmos_render" }
+bevy_sprite = { path = "forks/bevy_sprite" }
+bevy_sprite_render = { path = "forks/bevy_sprite_render" }
+
+[workspace.lints.clippy]
+type_complexity = "allow"
+too_many_arguments = "allow"
+needless_lifetimes = "allow"

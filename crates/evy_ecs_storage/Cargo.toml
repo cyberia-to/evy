@@ -1,0 +1,18 @@
+[package]
+name = "evy_ecs_storage"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "evy: bevy_ecs storage adapter over bbg::ShardStore (5 backends, 13 namespaces)"
+
+[dependencies]
+bbg = { workspace = true }
+nebu = { workspace = true }
+hemera = { workspace = true }
+evy_platform_caps = { path = "../evy_platform_caps" }
+
+[features]
+default = []
+backend-unimem = ["bbg/backend-unimem", "evy_platform_caps/probe-unimem"]
+backend-ssd = ["bbg/backend-ssd"]
+backend-hdd = ["bbg/backend-hdd"]
