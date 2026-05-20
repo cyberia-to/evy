@@ -29,7 +29,29 @@ pub(super) fn layout(
         Direction::Horizontal => (parent_size.w, parent_size.h),
         Direction::Vertical => (parent_size.h, parent_size.w),
     };
-    let total_gap = gap.saturating_mul((n as u32).saturating_sub(1));
+
+    // Apply fold selection if this membrane has a fold set. Non-active
+    // children are skipped during layout but still consume LayoutResult
+    // indices (advanced via next_id += child.count()) to keep the result
+    // tree-aligned.
+    let active: Vec<bool> = match &element.fold_set {
+        Some(fs) => match fs.active(main_avail) {
+            Some(conf) => {
+                let mut a = vec![false; n];
+                for &i in &conf.child_indices {
+                    if i < n {
+                        a[i] = true;
+                    }
+                }
+                a
+            }
+            None => vec![true; n],
+        },
+        None => vec![true; n],
+    };
+    let active_count = active.iter().filter(|&&b| b).count();
+
+    let total_gap = gap.saturating_mul((active_count as u32).saturating_sub(1));
     let usable_main = main_avail.saturating_sub(total_gap);
 
     // Pass 1: resolve fix + scale on main axis, accumulate consumption,
@@ -40,6 +62,9 @@ pub(super) fn layout(
     let mut fixed_consumed: u32 = 0;
 
     for (i, child) in element.children.iter().enumerate() {
+        if !active[i] {
+            continue;
+        }
         let main_sizing = match direction {
             Direction::Horizontal => &child.size.width,
             Direction::Vertical => &child.size.height,
@@ -90,9 +115,16 @@ pub(super) fn layout(
         }
     }
 
-    // Pass 3: place. Walk children, cumulating offsets along main axis.
+    // Pass 3: place. Walk children, cumulating offsets along main axis
+    // for active children. Inactive children are skipped, but their
+    // subtree IDs are still consumed so that LayoutResult indexing stays
+    // aligned with the tree's DFS pre-order traversal.
     let mut cursor: u32 = 0;
     for (i, child) in element.children.iter().enumerate() {
+        if !active[i] {
+            *next_id += child.count();
+            continue;
+        }
         let main_size = sizes_main[i];
         let cross_sizing = match direction {
             Direction::Horizontal => &child.size.height,
@@ -229,5 +261,76 @@ mod tests {
         );
         let r = layout(&stack, Constraint::new(100, 100));
         assert_eq!(r.len(), 1);
+    }
+
+    #[test]
+    fn fold_selects_widest_conformation_when_constraint_is_loose() {
+        use crate::fold::FoldSet;
+        let stack = Element::membrane(
+            Size::new(SizeType::fill(), SizeType::fill()),
+            Container::horizontal(),
+            vec![leaf_fix(10, 5), leaf_fix(20, 5), leaf_fix(30, 5)],
+        )
+        .with_fold_set(FoldSet::derive_optimal(&[10, 20, 30], &[1.0, 2.0, 3.0], 1));
+
+        // Generous constraint: all three should be visible.
+        let r = layout(&stack, Constraint::new(100, 20));
+        assert_eq!(r.len(), 4);
+        assert!(r.sizes[1].w > 0);
+        assert!(r.sizes[2].w > 0);
+        assert!(r.sizes[3].w > 0);
+    }
+
+    #[test]
+    fn fold_drops_least_important_when_constraint_shrinks() {
+        use crate::fold::FoldSet;
+        let stack = Element::membrane(
+            Size::new(SizeType::fill(), SizeType::fill()),
+            Container::horizontal(),
+            // Three children — child 0 is least important, child 2 most.
+            vec![leaf_fix(10, 5), leaf_fix(20, 5), leaf_fix(30, 5)],
+        )
+        .with_fold_set(FoldSet::derive_optimal(&[10, 20, 30], &[1.0, 2.0, 3.0], 1));
+
+        // c_w = 55 — fits only [1, 2] (w_min = 20+30+1 = 51).
+        let r = layout(&stack, Constraint::new(55, 20));
+        assert_eq!(r.sizes[1].w, 0, "least-important child 0 must be hidden");
+        assert!(r.sizes[2].w > 0, "child 1 must be visible");
+        assert!(r.sizes[3].w > 0, "most-important child 2 must be visible");
+    }
+
+    #[test]
+    fn fold_keeps_most_important_at_narrowest() {
+        use crate::fold::FoldSet;
+        let stack = Element::membrane(
+            Size::new(SizeType::fill(), SizeType::fill()),
+            Container::horizontal(),
+            vec![leaf_fix(10, 5), leaf_fix(20, 5), leaf_fix(30, 5)],
+        )
+        .with_fold_set(FoldSet::derive_optimal(&[10, 20, 30], &[1.0, 2.0, 3.0], 1));
+
+        // c_w = 30 — only child 2 (the most important, width 30) fits.
+        let r = layout(&stack, Constraint::new(30, 20));
+        assert_eq!(r.sizes[1].w, 0);
+        assert_eq!(r.sizes[2].w, 0);
+        assert!(r.sizes[3].w > 0);
+    }
+
+    #[test]
+    fn fold_preserves_total_node_count_in_result() {
+        use crate::fold::FoldSet;
+        let stack = Element::membrane(
+            Size::new(SizeType::fill(), SizeType::fill()),
+            Container::horizontal(),
+            vec![leaf_fix(10, 5), leaf_fix(20, 5), leaf_fix(30, 5)],
+        )
+        .with_fold_set(FoldSet::derive_optimal(&[10, 20, 30], &[1.0, 2.0, 3.0], 1));
+
+        // No matter the constraint, LayoutResult must have one entry per
+        // tree node so that downstream code can index by tree position.
+        for cw in [10u32, 30, 50, 80, 100] {
+            let r = layout(&stack, Constraint::new(cw, 20));
+            assert_eq!(r.len(), 4, "tree node count must be preserved at cw={cw}");
+        }
     }
 }

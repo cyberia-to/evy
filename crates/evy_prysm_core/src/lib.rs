@@ -21,13 +21,22 @@
 mod constraint;
 mod container;
 mod element;
+mod emotion;
+mod fold;
 mod layout;
+mod motion;
 mod sizing;
 
 pub use constraint::{Constraint, OccupiedSize, Position};
 pub use container::{Align, Container, Direction};
 pub use element::{Element, ElementId};
+pub use emotion::{
+    apply_freshness, continuous, polarity, semantic, threshold, threshold_multi, EmotionColor,
+    Freshness, SemanticAction,
+};
+pub use fold::{Conformation, FoldSet};
 pub use layout::{layout, LayoutResult};
+pub use motion::{cubic_bezier, ease, Interpolate, MotionState, EASE_X1, EASE_X2, EASE_Y1, EASE_Y2, MOTION_DURATION_MS};
 pub use sizing::{Size, SizeType};
 
 /// The spatial quantum `g` per prysm/layout.md §3.2.
