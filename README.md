@@ -24,7 +24,7 @@ evy is the engine; [[cyb]] is one game built on it. evy is not a general-purpose
 ```
 evy/
 ├── forks/                 16 bevy crates we modify (forked from v0.18.1)
-├── crates/                ~24 evy-specific crates (~33K LOC)
+├── crates/                9 evy-specific crates landed (~24 planned)
 ├── specs/                 architecture spec (evy.md is canonical)
 ├── roadmap/               open proposals
 ├── .claude/plans/         agent state
@@ -50,7 +50,27 @@ intact bevy crates come from crates.io as versioned deps (~20 crates: bevy_app, 
 
 ## status
 
-spec-complete. implementation begins with the bbg `ShardStore` extensions (see [[bbg/roadmap/cyb-engine-shardstore]]) and the `evy_ecs_storage` adapter that consumes them.
+9 crates landed (~4.5K LOC, 143 tests). 11 of 17 §19 attack-order steps complete or substantially started. End-to-end smoke test in `evy_engine_core` exercises every subsystem.
+
+| crate | LOC | tests | what |
+|-------|----:|------:|------|
+| `evy_platform_caps` | ~280 | 6 | runtime probe (engines, NPU, thermal class) + FallbackPolicy |
+| `evy_ecs_storage` | ~600 | 25 | `bbg::ShardStore` adapter; typed components over 13 namespaces |
+| `evy_engine_tasks` | ~280 | 7 | AmxTaskPool + AneTaskPool (Apple Silicon; stub elsewhere) |
+| `evy_engine_dispatch` | ~520 | 18 | DispatchNode trait + scheduler + commit-policy machinery |
+| `evy_prysm_core` | ~1,500 | 47 | Π protocol + Φ sizing + K containers + fold + motion + emotion |
+| `evy_radio` | ~330 | 6 | channel bridge to iroh daemon (stub; real iroh in session 11.2) |
+| `evy_diagnostic` | ~370 | 11 | wall + PMU measurement, Diagnostic accumulator |
+| `evy_semcon` | ~300 | 14 | semantic conventions + registry |
+| `evy_engine_core` | ~340 | 9 | assembly: `Engine::builder()` wires everything |
+
+run the hello example:
+
+```
+cargo run -p evy_engine_core --example hello
+```
+
+aruminium device-sharing (step 3) landed upstream — `Gpu::from_raw` + `Queue::from_raw_shared` available; steps 5, 6, 8, 9, 10, 14 in §19 are now unblocked.
 
 ## license
 

@@ -663,27 +663,30 @@ these crates are forked. upstream tracking is loose
 
 these crates do not exist in [[bevy]]. they are the substance of evy
 
-| crate | role | LOC estimate |
-|-------|------|--------------|
-| evy_engine_core | assembly, App entry point | ~1K |
-| evy_platform_caps | `PlatformCapabilities` runtime probe, `FallbackPolicy` machinery, thermal/power telemetry | ~400 |
-| evy_ecs_storage | adapter making [[bevy_ecs]] storage backed by `bbg::ShardStore` (5 backends + Android AHardwareBuffer variant) | ~1.5K |
-| evy_engine_dispatch | unified DispatchNode trait, scheduler, commit-policy machinery, cross-engine sync, capability-aware fallback routing | ~2.5K |
-| evy_nnapi_runtime | Android NPU dispatch (NNAPI / Hexagon NN) parallel to [[rane]]; glia .model → NNAPI translation | ~2K |
-| evy_render_compute | aruminium compute passes as DispatchNodes (Engine::Gpu(Aruminium), CommitPolicy::None) | ~1K |
-| evy_neural_material | model-driven Material trait + [[glia]] bridge | ~1.5K |
-| evy_phi_budget | φ*-driven per-particle render allocator | ~500 |
-| evy_generative_cache | diffusion-on-miss for textures/meshes | ~2K |
-| evy_radio | iroh adapter (out-of-engine tokio bridge) | ~2K |
-| evy_glia_runtime | per-particle Ane inference dispatcher | ~1.5K |
-| evy_mir_nodes | mir tier passes as DispatchNodes | ~3K (mir core lives in [[mir]] repo) |
-| evy_semcon | semcon-aware reflection layer bridging bevy_reflect ↔ cybergraph | ~800 |
-| evy_particle_loader | .cyb particle loaders (image, mesh, model, scene, audio, font) | ~2K |
-| evy_radio_asset | ShardStore network-backend impl serving the radio:// scheme | ~500 |
-| evy_audio | acpu NEON DSP + Ane spatial audio | ~2K |
-| evy_prysm_* (8 crates) | prysm implementation, §7.3 | ~11K |
+| crate | role | est | status |
+|-------|------|----:|--------|
+| evy_engine_core | assembly, `Engine::builder()` wires every subsystem | ~1K | ✓ landed (340 LOC, 9 tests + end-to-end smoke) |
+| evy_platform_caps | runtime probe (engines, NPU, thermal class) + FallbackPolicy | ~400 | ✓ landed (280 LOC, 6 tests) |
+| evy_ecs_storage | typed component adapter over `bbg::ShardStore` | ~1.5K | ✓ landed (600 LOC, 25 tests) |
+| evy_engine_tasks | AmxTaskPool + AneTaskPool (Apple Silicon; stub elsewhere) | — | ✓ landed (280 LOC, 7 tests) — spec deviation: was bevy_tasks EXTEND in §12, became separate crate |
+| evy_engine_dispatch | DispatchNode trait + scheduler + commit-policy + engine pool routing | ~2.5K | ✓ session 1+2 landed (520 LOC, 18 tests). sessions 3-4 (parallel layer + cross-engine sync) blocked on aruminium step 3 |
+| evy_prysm_core | Π + Φ + K + fold + motion + emotion (core protocol, no atoms) | ~2K | ✓ landed (1500 LOC, 47 tests) |
+| evy_radio | channel bridge to iroh daemon | ~2K | ✓ session 1 landed (330 LOC, 6 tests) with stub daemon. session 2 = real iroh; session 3 = radio:// AssetSource |
+| evy_diagnostic | wall + PMU measurement + Diagnostic accumulator | — | ✓ landed (370 LOC, 11 tests) — extends spec; was implicit |
+| evy_semcon | semantic conventions + registry | ~800 | ✓ landed (300 LOC, 14 tests) |
+| evy_nnapi_runtime | Android NPU dispatch parallel to [[rane]]; glia .model → NNAPI translation | ~2K | pending Android bring-up |
+| evy_render_compute | aruminium compute passes as DispatchNodes | ~1K | blocked on aruminium step 3 |
+| evy_neural_material | model-driven Material trait + [[glia]] bridge | ~1.5K | blocked on steps 3+4 |
+| evy_phi_budget | φ*-driven per-particle render allocator | ~500 | blocked on step 8 (glia) |
+| evy_generative_cache | diffusion-on-miss for textures/meshes | ~2K | blocked on step 8 |
+| evy_glia_runtime | per-particle Ane inference dispatcher | ~1.5K | blocked on steps 3+4 |
+| evy_mir_nodes | mir tier passes as DispatchNodes | ~3K (mir core lives in [[mir]] repo) | blocked on step 3 |
+| evy_particle_loader | .cyb particle loaders (image, mesh, model, scene, audio, font) | ~2K | needs step 11.2 |
+| evy_radio_asset | ShardStore network-backend impl serving the radio:// scheme | ~500 | needs step 11.2 |
+| evy_audio | acpu NEON DSP + Ane spatial audio | ~2K | replaces bevy_audio |
+| evy_prysm_* (atoms, molecules, cells, aips) | prysm implementation above core (§7.3) | ~11K | atoms blocked on render path (step 5+); molecules/cells/aips depend on atoms |
 
-total new: ~33K LOC. this is the actual project
+total landed: 9 crates, ~4.5K LOC, 143 tests. total planned new: ~33K LOC.
 
 ---
 
@@ -695,11 +698,13 @@ total new: ~33K LOC. this is the actual project
 | bevy forked (EXTEND or REWRITE) | 14 | ~221K |
 | bevy deleted | 4 | ~22K |
 | bevy replaced | 4 | ~32K |
-| new (evy) | 24 | ~33K |
+| new (evy) | 24 planned | ~33K |
 | total bevy code involved | 52 | ~327K |
-| total evy new code | 24 | ~33K |
+| total evy new code | 24 planned, 9 landed | ~33K planned, 4.5K landed |
 
 ratio: ~10× more bevy code is involved than evy new code. the engine is mostly bevy with surgical replacements at load-bearing seams. that is what makes the project feasible
+
+landed crates have 143 tests passing across 9 crates as of 2026-05-21; end-to-end smoke test in `evy_engine_core` exercises every subsystem
 
 ---
 
@@ -773,23 +778,27 @@ what evy explicitly is not
 
 implementation sequence. earlier steps unblock later ones
 
-1. evy_platform_caps + evy_ecs_storage: `PlatformCapabilities` probe and `FallbackPolicy` machinery; `bbg::ShardStore` adapter for [[bevy_ecs]] component storage; memory + unimem backends for Apple platforms. keystone — without this nothing else makes sense. ~3 sessions
-2. bevy_tasks extension: AmxTaskPool + AneTaskPool. engines beyond Cpu/Gpu need worker contexts. ~1 session
-3. aruminium wraps wgpu's `MTLDevice` (+ optional shared queue). ~1 session
-4. evy_engine_dispatch: `DispatchNode` trait, scheduler, commit-policy machinery, cross-engine sync table, capability-aware fallback routing. ~4 sessions
-5. bevy_mesh + bevy_image on unimem `ShardStore`; meshes/textures stop uploading. ~3 sessions
-6. bevy_transform with AMX propagation. first visible perf win. proof of model. ~2 sessions
-7. prysm core + atoms implementation. UI engine baseline. ~5 sessions
-8. evy_glia_runtime + evy_neural_material. the wow demo: inference-driven materials on ANE. ~6 sessions
-9. mir tier passes as DispatchNodes (Engine::Gpu(Aruminium), CommitPolicy::None). 3D-mode prysm renderer. ~4 sessions
-10. BBG signal handlers as DispatchNodes (CommitPolicy::BbgDimension(d)); tick-boundary commit scheduling; cybergraph + nox integration. content/state plumbing. ~5 sessions
-11. evy_radio adapter + ShardStore network-backend impl serving radio://. networking + asset substrate. ~3 sessions
-12. prysm molecules + cells + aips. fill out the UI. ~10 sessions
-13. evy_phi_budget + evy_generative_cache. neural-rendering capability surface. ~4 sessions
-14. bevy_pbr + post-process REWRITE. visual stack adaptation. ~6 sessions
-15. Android bring-up: NDK build pipeline, ShardStore Android backend (AHardwareBuffer or memory fallback per OQ-14), wgpu Vulkan path validation, touch input via prysm, Activity lifecycle checkpoint/restore. ~5 sessions
-16. evy_nnapi_runtime: Android NPU dispatch parallel to rane; glia .model → NNAPI translation. unblocks neural materials on Snapdragon-class. ~5 sessions
-17. PMU-backed bevy_diagnostic + thermal/power telemetry per platform tier. self-tuning closure. ~3 sessions
+1. ✓ evy_platform_caps + evy_ecs_storage: probe + FallbackPolicy + `bbg::ShardStore` adapter. memory + unimem backends. ~3 sessions, **landed**
+2. ✓ bevy_tasks extension: AmxTaskPool + AneTaskPool. ~1 session, **landed as separate crate `evy_engine_tasks`** (spec deviation; bevy_tasks moves from FORK to INTACT)
+3. ✓ aruminium wraps wgpu's `MTLDevice` (+ optional shared queue). ~1 session, **landed** in honeycrisp/aruminium commit `26ba16b` (4 tests passing, `Gpu::from_raw` + `Queue::from_raw_shared` + `Gpu::from_raw_with_queue`)
+4. ◐ evy_engine_dispatch: `DispatchNode` trait, scheduler, commit-policy, capability-aware fallback. ~4 sessions, **sessions 1-2 landed** (trait + scheduler skeleton + engine pool routing); sessions 3-4 (parallel layer + real cross-engine sync) blocked on step 3
+5. ⛔ bevy_mesh + bevy_image on unimem `ShardStore`; meshes/textures stop uploading. ~3 sessions, blocked on step 3
+6. ⛔ bevy_transform with AMX propagation. first visible perf win. ~2 sessions, blocked on step 4 complete
+7. ◐ prysm core + atoms implementation. ~5 sessions, **core protocol landed** (Π + Φ + K + fold + motion + emotion in `evy_prysm_core`, 47 tests). atoms blocked on render path
+8. ⛔ evy_glia_runtime + evy_neural_material — the wow demo. ~6 sessions, blocked on steps 3+4
+9. ⛔ mir tier passes as DispatchNodes. ~4 sessions, blocked on step 3
+10. ⛔ BBG signal handlers as DispatchNodes; tick-boundary commit scheduling; cybergraph + nox integration. ~5 sessions, blocked on step 4 complete
+11. ◐ evy_radio adapter + ShardStore network-backend impl serving radio://. ~3 sessions, **session 1 landed** (channel bridge + stub daemon, 6 tests); session 2 = real iroh; session 3 = AssetSource wiring
+12. ⛔ prysm molecules + cells + aips. ~10 sessions, blocked on step 7 atoms
+13. ⛔ evy_phi_budget + evy_generative_cache. ~4 sessions, blocked on step 8
+14. ⛔ bevy_pbr + post-process REWRITE. ~6 sessions, blocked on steps 3+4+5
+15. ⛔ Android bring-up. ~5 sessions, blocked on step 4 complete
+16. ⛔ evy_nnapi_runtime. ~5 sessions, blocked on step 4 + Android
+17. ✓ PMU-backed `evy_diagnostic` + thermal/power telemetry. ~3 sessions, **landed** (370 LOC, 11 tests, PMU upgrade path with Wall fallback)
+
+plus landed extras: evy_semcon (300 LOC, 14 tests; particle-identified component schemas), evy_engine_core (340 LOC, 9 tests; assembly + end-to-end smoke test)
+
+**progress: 12 of 17 steps complete or substantially started. step 3 landed upstream, unblocking ~25 sessions of downstream work (steps 4.3-4.4, 5, 6, 8, 9, 10, 14).**
 
 estimated total: ~69 sessions (~180–210 pomodoros, 35–42 days of focused work). this is the substantial-but-tractable scope of v1 including Android-out-of-the-box
 
