@@ -70,7 +70,7 @@ run the hello example:
 cargo run -p evy_engine_core --example hello
 ```
 
-aruminium device-sharing (step 3) landed upstream — `Gpu::from_raw` + `Queue::from_raw_shared` available; steps 5, 6, 8, 9, 10, 14 in §19 are now unblocked.
+step 3 (aruminium device-sharing) was reverted after analysis showed wgpu+aruminium coexistence taxes 9–13 ms/frame on Apple Silicon. corrected architecture: aruminium is THE renderer (raster + compute) on Apple Silicon; wgpu is the portable fallback for non-Apple targets. raster support proposal at `~/cyber/honeycrisp/aruminium/.claude/plans/raster-support.md` — implementing now.
 
 ## license
 

@@ -16,7 +16,7 @@ primary target: [[Apple Silicon]] (M-series). portable targets: any UMA platform
 
 ## 0. abstract
 
-evy inverts a decades-old game engine architecture. traditional engines treat the GPU as a remote device behind a copy boundary; evy treats memory as the single shared substrate and compute engines (CPU, AMX, GPU, ANE) as plural peers that operate on it concurrently. presentation is one formally specified protocol ([[prysm]]) across 2D and 3D. content is [[content-addressed]] [[particles]] reached over [[radio]]. trust-critical state lives in [[bbg]]'s polynomial commit. rendering is a hybrid of rasterization (where wgpu wins) and [[neural inference]] (where [[ANE]] wins). intelligence ([[glia]] per [[neuron]]) is a frame-time-affordable resource
+evy inverts a decades-old game engine architecture. traditional engines treat the GPU as a remote device behind a copy boundary; evy treats memory as the single shared substrate and compute engines (CPU, AMX, GPU, ANE) as plural peers that operate on it concurrently. presentation is one formally specified protocol ([[prysm]]) across 2D and 3D. content is [[content-addressed]] [[particles]] reached over [[radio]]. trust-critical state lives in [[bbg]]'s polynomial commit. on Apple Silicon, [[aruminium]] is the renderer — raster + compute, zero copy, native MTLSharedEvent sync; wgpu is the portable fallback on platforms where Metal is unavailable. intelligence ([[glia]] per [[neuron]]) is a frame-time-affordable resource
 
 what evy buys from [[bevy]]: ~100K LOC of rendering machinery (PBR, post-process, anti-alias, animation, gizmos) that would take a multi-engineer year to reproduce. what evy replaces in [[bevy]]: every assumption below the visual stack — storage, scheduler, presentation, scenes, assets, networking, audio. the result is a new engine that uses [[bevy]] as its rendering substrate
 
@@ -29,7 +29,7 @@ three axioms generate the engine. change any axiom and the entire system reconfi
 | axiom | symbol | statement |
 |-------|--------|-----------|
 | memory | $\mathcal{M}$ | one physical pool. all engines see the same pages. zero-copy is the default, not an optimization |
-| engines | $\mathcal{E}$ | $\{\text{Cpu}, \text{Amx}, \text{Gpu}, \text{Ane}\}$. plural, peer, concurrent. wgpu is one path within Gpu, alongside aruminium |
+| engines | $\mathcal{E}$ | $\{\text{Cpu}, \text{Amx}, \text{Gpu}, \text{Ane}\}$. plural, peer, concurrent. Gpu is one engine, one driver per platform: aruminium on Apple Silicon, wgpu on portable targets |
 | presentation | $\mathcal{P}$ | one protocol ([[prysm]]) for 2D and 3D. layout is renderer-independent. mir is prysm's 3D-mode renderer |
 
 derived: the engine is a multi-engine dispatch graph $\mathcal{D}$ over a single memory pool, with prysm as the universal presentation layer above it
@@ -97,8 +97,7 @@ quick reference for what each platform tier offers
 | unimem zero-copy | ✓ | partial (AHardwareBuffer) | — | — | — | — | — |
 | AMX matrix coprocessor | ✓ | — | — | — | — | — | — |
 | ANE neural engine | ✓ | NNAPI | — | NNAPI | NNAPI (NPU SKUs) | — | — |
-| aruminium compute path | ✓ | — | — | — | — | — | — |
-| wgpu raster | ✓ (Metal) | ✓ (Vulkan) | ✓ (Vulkan) | ✓ (D3D12) | ✓ (D3D12) | ✓ (variant) | ✓ |
+| Gpu driver | aruminium (raster + compute, hand MSL) | wgpu (Vulkan) | wgpu (Vulkan) | wgpu (D3D12) | wgpu (D3D12) | wgpu | wgpu |
 | radio P2P | ✓ | ✓ | ✓ | ✓ | ✓ | restricted | ✓ |
 | neural materials | ✓ | ✓ (slower) | fallback to baked | — | — | — | — |
 | generative cache | ✓ | ✓ (slower) | disabled | — | — | — | — |
@@ -168,8 +167,7 @@ all buffers shared between ≥2 engines are allocated via [[unimem]] primitives:
 cells in a `Grid<T>` are simultaneously:
 
 - a `&T` in Rust
-- a slot in an `MTLBuffer` for [[aruminium]] kernels
-- a slot in an `MTLBuffer` for [[wgpu]] shaders (via Metal interop)
+- a slot in an `MTLBuffer` for [[aruminium]] raster + compute (Apple Silicon)
 - an input surface for [[rane]] ANE inference
 - a tile source for [[acpu]] AMX/NEON ops
 
@@ -268,31 +266,29 @@ per [[unimem]] design: IOSurface is locked at creation, unlocked at drop. cells 
 
 ### 5.1 the four engines
 
-an engine is a distinct dispatch context the scheduler must track, not distinct silicon. NEON is part of Cpu because any thread issues NEON instructions in the same stream as scalar, sharing the SIMD register file (v0–v31). AMX is its own engine because per-thread `AmxCtx` must be initialized before AMX instructions can issue. ANE is its own engine because dispatch goes through [[rane]]'s MIL bytecode queue, not through the issuing thread. Gpu is one engine with two paths (wgpu, aruminium) that share an `MTLCommandQueue`
+an engine is a distinct dispatch context the scheduler must track, not distinct silicon. NEON is part of Cpu because any thread issues NEON instructions in the same stream as scalar, sharing the SIMD register file (v0–v31). AMX is its own engine because per-thread `AmxCtx` must be initialized before AMX instructions can issue. ANE is its own engine because dispatch goes through [[rane]]'s MIL bytecode queue, not through the issuing thread. Gpu is one engine with one driver per platform: [[aruminium]] (raster + compute, hand-written MSL, zero copy) on Apple Silicon; wgpu (cross-vendor Vulkan/D3D12) on portable targets
 
 | engine | hardware | dispatch | workloads |
 |--------|----------|----------|-----------|
 | Cpu | P-cores + E-cores. scalar + NEON SIMD share register file | direct call; any thread | ECS systems, layout, input, audio DSP (NEON via [[acpu]]::vector), blake3 hashing for BAO, FFT, vector math, crypto SHA/AES/PMULL (via [[acpu]]::crypto), small inference below ANE dispatch threshold |
 | Amx | Apple AMX coprocessor (per-cluster). M4 introduces SME as future replacement | inline asm via [[acpu]]; per-thread `AmxCtx` required | transform propagation, skinning palettes, eigensolvers (LOBPCG), Poseidon2 hashing, SGEMM ≥32×32, batched matrix math |
-| Gpu | Apple GPU | wgpu queue OR aruminium queue (shares `MTLDevice`, optionally `MTLCommandQueue`) | raster, post, custom MSL compute kernels, mir tier passes, neural material vertex transforms |
+| Gpu | Apple GPU (on macOS) or vendor GPU (elsewhere) | [[aruminium]] on Apple Silicon — its own `MTLDevice` + `MTLCommandQueue`, raster + compute, zero copy via unimem. wgpu elsewhere — Vulkan/D3D12 fallback | raster, post, custom MSL compute kernels, mir tier passes, neural material vertex transforms |
 | Ane | Apple Neural Engine | [[rane]] MIL bytecode dispatch queue | batched neural inference (≥1M params), neural material per-pixel feature maps, NeRF eval, diffusion, per-NPC behavior models |
 
 each engine has its own dispatch primitive and (where applicable) its own worker context. engines share memory but not state
 
-### 5.2 wgpu is one path within Gpu
+### 5.2 one renderer per platform
 
-within engine Gpu, two driver paths coexist:
+within engine Gpu, exactly one driver is active per platform — they do not coexist:
 
-| path | speaks | use |
-|------|--------|-----|
-| wgpu | wgpu's wgsl/naga pipeline + Metal backend | raster passes, portable shaders, [[bevy]] PBR/post |
-| aruminium | hand-written MSL via [[aruminium]] direct dispatch | compute kernels, custom Metal hot paths, mir tier passes |
+| platform | driver | what |
+|----------|--------|------|
+| Apple Silicon (macOS) | [[aruminium]] | hand-written MSL, raster + compute, zero copy via unimem, native `MTLSharedEvent` cross-engine sync |
+| portable (Android, Windows, Linux, console) | wgpu | cross-vendor Vulkan/D3D12; no zero-copy guarantee |
 
-both wrap the same `MTLDevice` and (optionally) share an `MTLCommandQueue`. choice per pipeline:
+aruminium is the renderer on Apple Silicon because the wgpu abstraction taxes ~9–13 ms of frame budget for the same Metal hardware (per-draw-call CPU overhead 5–8 µs vs 1–2 µs; mesh upload BW 25 GB/s vs 70–100 GB/s direct IOSurface; lost `MTLSharedEvent` cross-engine sync; WGSL→MSL translation cost). on a 16.6 ms frame, that's the difference between 60 FPS and 30. on Apple Silicon evy is Apple-first; portability overhead is paid only where Metal isn't available
 
-- standard raster, portable shader, [[bevy]] material: wgpu
-- compute kernel with shared-memory bypass, hand-tuned MSL: aruminium
-- neural material consuming ANE inference output: aruminium (because the ANE output lives in IOSurface and aruminium reads it without translation)
+wgpu does not coexist with aruminium on Apple Silicon. an earlier draft of this spec proposed sharing `MTLDevice` between the two drivers; that was reverted (commit `48f1bc8` in honeycrisp/aruminium). on every platform evy ships, exactly one Gpu driver is active
 
 ### 5.3 engine routing rules
 
@@ -303,8 +299,8 @@ a workload routes to an engine by these defaults:
 | batched matrix multiply (≥32×32) | Amx | tile-shaped, no GPU dispatch overhead |
 | small dense vector ops (length < 1024) | Cpu/NEON | dispatch overhead dominates |
 | dense vector ops (≥ 1024) | Amx or Gpu compute | depending on shape |
-| raster pass | Gpu/wgpu | what raster GPUs do |
-| compute over shared memory | Gpu/aruminium | zero translation, shared queue |
+| raster pass | Gpu (aruminium on Apple, wgpu elsewhere) | what GPUs do |
+| compute over shared memory | Gpu (aruminium on Apple, wgpu compute on others) | zero translation on Apple Silicon |
 | neural inference (≥ 1M params) | Ane | 50× more efficient per watt than Gpu |
 | neural inference (tiny, < 100K params) | Cpu or Gpu | dispatch overhead matters |
 | graph eigensolve (LOBPCG) | Amx | repeated mat-vec, AMX shape |
@@ -365,7 +361,6 @@ frame ≠ tick. frame is render swap cadence (60–120Hz). tick is gameplay stat
 | from → to | mechanism |
 |-----------|-----------|
 | Cpu → Gpu | `MTLCommandBuffer` enqueue, fence |
-| Gpu (wgpu) → Gpu (aruminium) | shared `MTLSharedEvent` |
 | Gpu → Cpu | `MTLCommandBuffer` completed handler or `waitUntilCompleted` |
 | Ane → Cpu | `IOSurface` lock/unlock semantics |
 | Cpu → Ane | rane program input ready |
@@ -543,15 +538,15 @@ every networked operation has a local-cache fallback. fetch returns from cache i
 
 ### 10.1 hybrid raster + inference
 
-a frame is composed of three rendering paths, all writing into the same framebuffer:
+a frame composes raster, compute, and neural paths into the same framebuffer. on Apple Silicon all three share one Metal device (aruminium); on portable targets, raster + compute go through wgpu and neural is unavailable
 
-| path | engine | content |
-|------|--------|---------|
-| raster | Gpu/wgpu | meshes, materials, post, UI quads, gizmos |
-| compute | Gpu/aruminium | mir tier passes (T0–T∞), culling, edge anim |
-| neural | Ane | per-particle feature inference, neural material eval |
+| path | Apple Silicon | portable |
+|------|---------------|----------|
+| raster | aruminium (hand MSL, native MTLBuffer + MTLTexture from unimem) | wgpu (WGSL/naga, copy-staged) |
+| compute | aruminium (custom MSL kernels, same queue as raster) | wgpu compute (degraded; no zero copy) |
+| neural | ANE via rane (zero-copy IOSurface inputs) | NNAPI on Android, otherwise none |
 
-these paths share buffers via [[unimem]]. raster reads positions from a Grid; compute writes positions into the same Grid; neural reads features from a Grid that mir's compute populated. one memory, three pipelines
+on Apple Silicon, all three paths share buffers via [[unimem]]. raster reads positions from a Grid; compute writes positions into the same Grid; neural reads features from a Grid that mir's compute populated. one memory, three pipelines, one device — no cross-driver sync. on portable targets the model degrades per §3.2: same pipelines, no zero copy, fewer engines
 
 ### 10.2 neural materials
 
@@ -780,7 +775,7 @@ implementation sequence. earlier steps unblock later ones
 
 1. ✓ evy_platform_caps + evy_ecs_storage: probe + FallbackPolicy + `bbg::ShardStore` adapter. memory + unimem backends. ~3 sessions, **landed**
 2. ✓ bevy_tasks extension: AmxTaskPool + AneTaskPool. ~1 session, **landed as separate crate `evy_engine_tasks`** (spec deviation; bevy_tasks moves from FORK to INTACT)
-3. ✓ aruminium wraps wgpu's `MTLDevice` (+ optional shared queue). ~1 session, **landed** in honeycrisp/aruminium commit `26ba16b` (4 tests passing, `Gpu::from_raw` + `Queue::from_raw_shared` + `Gpu::from_raw_with_queue`)
+3. ⏳ aruminium gains raster support — `RenderPipelineState` + `RenderPassDescriptor` + `RenderEncoder` + render-target `Texture`, so aruminium is a complete renderer (not just compute) on Apple Silicon. ~3–4 sessions. **proposal drafted** at `~/cyber/honeycrisp/aruminium/.claude/plans/raster-support.md`. The earlier device-sharing constructors (commit `26ba16b`) were reverted (`48f1bc8`) because the wgpu+aruminium coexistence model they enabled costs 9–13 ms/frame on Apple Silicon
 4. ◐ evy_engine_dispatch: `DispatchNode` trait, scheduler, commit-policy, capability-aware fallback. ~4 sessions, **sessions 1-2 landed** (trait + scheduler skeleton + engine pool routing); sessions 3-4 (parallel layer + real cross-engine sync) blocked on step 3
 5. ⛔ bevy_mesh + bevy_image on unimem `ShardStore`; meshes/textures stop uploading. ~3 sessions, blocked on step 3
 6. ⛔ bevy_transform with AMX propagation. first visible perf win. ~2 sessions, blocked on step 4 complete
@@ -798,7 +793,7 @@ implementation sequence. earlier steps unblock later ones
 
 plus landed extras: evy_semcon (300 LOC, 14 tests; particle-identified component schemas), evy_engine_core (340 LOC, 9 tests; assembly + end-to-end smoke test)
 
-**progress: 12 of 17 steps complete or substantially started. step 3 landed upstream, unblocking ~25 sessions of downstream work (steps 4.3-4.4, 5, 6, 8, 9, 10, 14).**
+**progress: 11 of 17 steps complete or substantially started. step 3 reframed: aruminium gains raster (proposal drafted) — the earlier device-sharing path was abandoned after numbers showed wgpu+aruminium coexistence taxes 9–13 ms/frame on Apple Silicon. ~25 sessions of downstream work (steps 4.3-4.4, 5, 6, 8, 9, 10, 14) unblock once aruminium raster lands.**
 
 estimated total: ~69 sessions (~180–210 pomodoros, 35–42 days of focused work). this is the substantial-but-tractable scope of v1 including Android-out-of-the-box
 
