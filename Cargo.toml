@@ -70,6 +70,7 @@ bevy_sprite_render = { path = "forks/bevy_sprite_render" }
 # a forked crate to use OUR fork. Without this, crates.io bevy_winit
 # would pull crates.io bevy_ecs (not ours).
 [patch.crates-io]
+naga      = { path = "forks/naga" }
 bevy_ecs = { path = "forks/bevy_ecs" }
 bevy_render = { path = "forks/bevy_render" }
 bevy_pbr = { path = "forks/bevy_pbr" }
