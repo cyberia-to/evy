@@ -8,7 +8,7 @@ use evy_engine_dispatch::{
     PlatformCapabilities, SchedulePlan,
 };
 use evy_radio::RadioClient;
-use evy_semcon::SemconRegistry;
+use evy_dialect::DialectRegistry;
 
 use crate::builder::EngineBuilder;
 
@@ -19,7 +19,7 @@ pub struct Engine {
     storage: ShardStorage,
     scheduler: DispatchScheduler,
     radio: Option<RadioClient>,
-    semcon_registry: SemconRegistry,
+    dialect_registry: DialectRegistry,
     probe: PmuProbe,
     diagnostic: Diagnostic,
     nodes: Vec<Box<dyn DispatchNode>>,
@@ -43,7 +43,7 @@ impl Engine {
         storage: ShardStorage,
         scheduler: DispatchScheduler,
         radio: Option<RadioClient>,
-        semcon_registry: SemconRegistry,
+        dialect_registry: DialectRegistry,
         probe: PmuProbe,
         diagnostic: Diagnostic,
     ) -> Self {
@@ -55,7 +55,7 @@ impl Engine {
             storage,
             scheduler,
             radio,
-            semcon_registry,
+            dialect_registry,
             probe,
             diagnostic,
             nodes: Vec::new(),
@@ -130,12 +130,12 @@ impl Engine {
         &mut self.storage
     }
 
-    pub fn semcon_registry(&self) -> &SemconRegistry {
-        &self.semcon_registry
+    pub fn dialect_registry(&self) -> &DialectRegistry {
+        &self.dialect_registry
     }
 
-    pub fn semcon_registry_mut(&mut self) -> &mut SemconRegistry {
-        &mut self.semcon_registry
+    pub fn dialect_registry_mut(&mut self) -> &mut DialectRegistry {
+        &mut self.dialect_registry
     }
 
     pub fn radio(&self) -> Option<&RadioClient> {
@@ -241,20 +241,20 @@ mod tests {
     }
 
     #[test]
-    fn engine_semcon_registry_starts_empty_and_accepts_registrations() {
+    fn engine_dialect_registry_starts_empty_and_accepts_registrations() {
         struct TypeA;
-        impl evy_semcon::HasSemcon for TypeA {
-            const SEMCON: evy_semcon::Semcon =
+        impl evy_dialect::HasDialect for TypeA {
+            const DIALECT: evy_dialect::Dialect =
                 evy_ecs_storage::ParticleId::from_hash([0xA1; 32]);
         }
 
         let mut engine = Engine::builder().build().unwrap();
-        assert_eq!(engine.semcon_registry().len(), 0);
+        assert_eq!(engine.dialect_registry().len(), 0);
         engine
-            .semcon_registry_mut()
+            .dialect_registry_mut()
             .register::<TypeA>()
             .unwrap();
-        assert_eq!(engine.semcon_registry().len(), 1);
+        assert_eq!(engine.dialect_registry().len(), 1);
     }
 
     #[test]
@@ -304,10 +304,10 @@ mod tests {
         // 1. Build engine with all subsystems.
         let mut engine = Engine::builder().build().unwrap();
 
-        // 2. Register a semcon for a component type.
+        // 2. Register a dialect for a component type.
         struct GameState(u64);
-        impl evy_semcon::HasSemcon for GameState {
-            const SEMCON: evy_semcon::Semcon =
+        impl evy_dialect::HasDialect for GameState {
+            const DIALECT: evy_dialect::Dialect =
                 evy_ecs_storage::ParticleId::from_hash([0xCA; 32]);
         }
         impl evy_ecs_storage::EvyComponent for GameState {
@@ -320,8 +320,8 @@ mod tests {
                 GameState(slice[0].as_u64())
             }
         }
-        engine.semcon_registry_mut().register::<GameState>().unwrap();
-        assert!(engine.semcon_registry().agrees_on::<GameState>());
+        engine.dialect_registry_mut().register::<GameState>().unwrap();
+        assert!(engine.dialect_registry().agrees_on::<GameState>());
 
         // 3. Submit a radio request (stub daemon echoes synthetically).
         let _request_id = engine

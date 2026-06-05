@@ -1,4 +1,4 @@
-//! Deterministic semcon derivation from a type signature.
+//! Deterministic dialect derivation from a type signature.
 //!
 //! The signature is a canonical string representation of the type's
 //! structure (name + ordered fields). Hashing it via [[hemera]] yields
@@ -10,12 +10,12 @@
 //!
 //! Fields are in declaration order; whitespace is collapsed. Two
 //! machines that compile the same Rust type produce the same signature
-//! string and therefore the same semcon.
+//! string and therefore the same dialect.
 
-use crate::Semcon;
+use crate::Dialect;
 use evy_ecs_storage::ParticleId;
 
-/// One field of a struct, for `semcon_from_struct`.
+/// One field of a struct, for `dialect_from_struct`.
 #[derive(Debug, Clone, Copy)]
 pub struct FieldSignature {
     pub name: &'static str,
@@ -28,16 +28,16 @@ impl FieldSignature {
     }
 }
 
-/// Derive a semcon from an arbitrary signature string. Use this for
+/// Derive a dialect from an arbitrary signature string. Use this for
 /// non-struct types or custom signatures.
-pub fn semcon_from_signature(signature: &str) -> Semcon {
+pub fn dialect_from_signature(signature: &str) -> Dialect {
     let h = hemera::hash(signature.as_bytes());
     ParticleId::from_hash(*h.as_bytes())
 }
 
-/// Derive a semcon from a struct's name and ordered fields. Builds a
+/// Derive a dialect from a struct's name and ordered fields. Builds a
 /// canonical string `"struct <name>{n1:t1,n2:t2,...}"` and hashes it.
-pub fn semcon_from_struct(name: &str, fields: &[FieldSignature]) -> Semcon {
+pub fn dialect_from_struct(name: &str, fields: &[FieldSignature]) -> Dialect {
     let mut sig = String::with_capacity(name.len() + 16 + fields.len() * 16);
     sig.push_str("struct ");
     sig.push_str(name);
@@ -51,7 +51,7 @@ pub fn semcon_from_struct(name: &str, fields: &[FieldSignature]) -> Semcon {
         sig.push_str(f.type_name);
     }
     sig.push('}');
-    semcon_from_signature(&sig)
+    dialect_from_signature(&sig)
 }
 
 #[cfg(test)]
@@ -59,40 +59,40 @@ mod tests {
     use super::*;
 
     #[test]
-    fn same_signature_yields_same_semcon() {
-        let a = semcon_from_signature("foo");
-        let b = semcon_from_signature("foo");
+    fn same_signature_yields_same_dialect() {
+        let a = dialect_from_signature("foo");
+        let b = dialect_from_signature("foo");
         assert_eq!(a, b);
     }
 
     #[test]
-    fn different_signatures_yield_different_semcons() {
-        let a = semcon_from_signature("foo");
-        let b = semcon_from_signature("bar");
+    fn different_signatures_yield_different_dialects() {
+        let a = dialect_from_signature("foo");
+        let b = dialect_from_signature("bar");
         assert_ne!(a, b);
     }
 
     #[test]
-    fn struct_semcon_is_field_order_sensitive() {
-        let a = semcon_from_struct(
+    fn struct_dialect_is_field_order_sensitive() {
+        let a = dialect_from_struct(
             "Point",
             &[FieldSignature::new("x", "f32"), FieldSignature::new("y", "f32")],
         );
-        let b = semcon_from_struct(
+        let b = dialect_from_struct(
             "Point",
             &[FieldSignature::new("y", "f32"), FieldSignature::new("x", "f32")],
         );
-        // Different ordering = different schema = different semcon.
+        // Different ordering = different schema = different dialect.
         assert_ne!(a, b);
     }
 
     #[test]
-    fn struct_semcon_is_type_sensitive() {
-        let a = semcon_from_struct(
+    fn struct_dialect_is_type_sensitive() {
+        let a = dialect_from_struct(
             "Point",
             &[FieldSignature::new("x", "f32"), FieldSignature::new("y", "f32")],
         );
-        let b = semcon_from_struct(
+        let b = dialect_from_struct(
             "Point",
             &[FieldSignature::new("x", "f64"), FieldSignature::new("y", "f64")],
         );
@@ -100,12 +100,12 @@ mod tests {
     }
 
     #[test]
-    fn struct_semcon_is_name_sensitive() {
-        let a = semcon_from_struct(
+    fn struct_dialect_is_name_sensitive() {
+        let a = dialect_from_struct(
             "Point",
             &[FieldSignature::new("x", "f32"), FieldSignature::new("y", "f32")],
         );
-        let b = semcon_from_struct(
+        let b = dialect_from_struct(
             "Vec2",
             &[FieldSignature::new("x", "f32"), FieldSignature::new("y", "f32")],
         );
@@ -113,9 +113,9 @@ mod tests {
     }
 
     #[test]
-    fn empty_struct_has_distinct_semcon() {
-        let a = semcon_from_struct("Marker", &[]);
-        let b = semcon_from_struct("Marker", &[FieldSignature::new("v", "()")]);
+    fn empty_struct_has_distinct_dialect() {
+        let a = dialect_from_struct("Marker", &[]);
+        let b = dialect_from_struct("Marker", &[FieldSignature::new("v", "()")]);
         assert_ne!(a, b);
     }
 }

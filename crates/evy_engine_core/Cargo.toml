@@ -3,7 +3,7 @@ name = "evy_engine_core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "evy: assembly crate — single entry point that wires platform_caps, ecs_storage, engine_dispatch, radio, semcon, diagnostic"
+description = "evy: assembly crate — single entry point that wires platform_caps, ecs_storage, engine_dispatch, radio, dialect, diagnostic"
 
 [dependencies]
 evy_platform_caps = { path = "../evy_platform_caps" }
@@ -11,7 +11,7 @@ evy_ecs_storage = { path = "../evy_ecs_storage" }
 evy_engine_dispatch = { path = "../evy_engine_dispatch" }
 evy_engine_tasks = { path = "../evy_engine_tasks" }
 evy_radio = { path = "../evy_radio" }
-evy_semcon = { path = "../evy_semcon" }
+evy_dialect = { path = "../evy_dialect" }
 evy_diagnostic = { path = "../evy_diagnostic" }
 
 [dev-dependencies]

@@ -14,7 +14,7 @@
 //! - `PlatformCapabilities` — what hardware features are available
 //! - `ShardStorage` — the unified storage layer (bbg::ShardStore impl)
 //! - `DispatchScheduler` — the multi-engine compute DAG scheduler
-//! - `SemconRegistry` — component schema agreement
+//! - `DialectRegistry` — component schema agreement
 //! - `Diagnostic` — per-system measurements
 //! - `Option<RadioClient>` — networking, when the daemon is spawned
 //!
@@ -42,7 +42,7 @@ pub use evy_engine_tasks::{AmxTaskPool, AneTaskPool, PoolError};
 pub use evy_radio::{
     DaemonHandle, GossipEvent, RadioClient, RadioError, RadioRequest, RadioResponse, RequestId,
 };
-pub use evy_semcon::{
-    semcon_from_signature, semcon_from_struct, FieldSignature, HasSemcon, RegistryEntry, Semcon,
-    SemconRegistry,
+pub use evy_dialect::{
+    dialect_from_signature, dialect_from_struct, FieldSignature, HasDialect, RegistryEntry, Dialect,
+    DialectRegistry,
 };

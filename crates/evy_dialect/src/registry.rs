@@ -1,20 +1,20 @@
-//! `SemconRegistry` — runtime registration and lookup of types ↔ semcons.
+//! `DialectRegistry` — runtime registration and lookup of types ↔ dialects.
 
 use std::any::TypeId;
 use std::collections::HashMap;
 
-use crate::Semcon;
+use crate::Dialect;
 
-/// Types that declare their semcon. Implementors typically compute the
-/// semcon at compile time via `semcon_from_struct` and assign it to a
+/// Types that declare their dialect. Implementors typically compute the
+/// dialect at compile time via `dialect_from_struct` and assign it to a
 /// `const`.
-pub trait HasSemcon: 'static {
-    /// The semcon — must be derivable, ideally with `semcon_from_struct`,
+pub trait HasDialect: 'static {
+    /// The dialect — must be derivable, ideally with `dialect_from_struct`,
     /// so two compilations of the same type produce the same value.
-    const SEMCON: Semcon;
+    const DIALECT: Dialect;
 
     /// Human-readable name. Defaults to `std::any::type_name`.
-    fn semcon_name() -> &'static str {
+    fn dialect_name() -> &'static str {
         std::any::type_name::<Self>()
     }
 }
@@ -24,74 +24,74 @@ pub trait HasSemcon: 'static {
 pub struct RegistryEntry {
     pub type_id: TypeId,
     pub type_name: &'static str,
-    pub semcon: Semcon,
+    pub dialect: Dialect,
 }
 
-/// Bidirectional map between Rust `TypeId` and cyber `Semcon`.
+/// Bidirectional map between Rust `TypeId` and cyber `Dialect`.
 ///
-/// One `SemconRegistry` per evy `App`; held as a resource by the engine.
+/// One `DialectRegistry` per evy `App`; held as a resource by the engine.
 /// All component types that participate in BBG-committed namespaces
 /// should register here so cross-machine schema agreement is enforceable.
 #[derive(Debug, Default)]
-pub struct SemconRegistry {
-    by_type: HashMap<TypeId, Semcon>,
-    by_particle: HashMap<Semcon, RegistryEntry>,
+pub struct DialectRegistry {
+    by_type: HashMap<TypeId, Dialect>,
+    by_particle: HashMap<Dialect, RegistryEntry>,
 }
 
-impl SemconRegistry {
+impl DialectRegistry {
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Register a type. Idempotent: re-registering the same type with the
-    /// same semcon is a no-op. Re-registering with a different semcon
-    /// returns `Err(SemconConflict)` — usually means the type's schema
+    /// same dialect is a no-op. Re-registering with a different dialect
+    /// returns `Err(DialectConflict)` — usually means the type's schema
     /// changed and the in-memory registry is now stale.
-    pub fn register<T: HasSemcon>(&mut self) -> Result<(), SemconConflict> {
+    pub fn register<T: HasDialect>(&mut self) -> Result<(), DialectConflict> {
         let type_id = TypeId::of::<T>();
-        let semcon = T::SEMCON;
+        let dialect = T::DIALECT;
 
         match self.by_type.get(&type_id) {
-            Some(existing) if *existing == semcon => return Ok(()),
+            Some(existing) if *existing == dialect => return Ok(()),
             Some(existing) => {
-                return Err(SemconConflict {
-                    type_name: T::semcon_name(),
+                return Err(DialectConflict {
+                    type_name: T::dialect_name(),
                     registered: *existing,
-                    requested: semcon,
+                    requested: dialect,
                 });
             }
             None => {}
         }
 
-        self.by_type.insert(type_id, semcon);
+        self.by_type.insert(type_id, dialect);
         self.by_particle.insert(
-            semcon,
+            dialect,
             RegistryEntry {
                 type_id,
-                type_name: T::semcon_name(),
-                semcon,
+                type_name: T::dialect_name(),
+                dialect,
             },
         );
         Ok(())
     }
 
-    /// Get the registered semcon for a type, if any.
-    pub fn lookup_semcon<T: 'static>(&self) -> Option<Semcon> {
+    /// Get the registered dialect for a type, if any.
+    pub fn lookup_dialect<T: 'static>(&self) -> Option<Dialect> {
         self.by_type.get(&TypeId::of::<T>()).copied()
     }
 
-    /// Get the registry entry for a semcon, if registered.
-    pub fn lookup_type(&self, semcon: Semcon) -> Option<&RegistryEntry> {
-        self.by_particle.get(&semcon)
+    /// Get the registry entry for a dialect, if registered.
+    pub fn lookup_type(&self, dialect: Dialect) -> Option<&RegistryEntry> {
+        self.by_particle.get(&dialect)
     }
 
-    /// True if the registered semcon for `T` equals `T::SEMCON`.
+    /// True if the registered dialect for `T` equals `T::DIALECT`.
     ///
     /// Returns `false` if either `T` is unregistered or the registered
-    /// semcon disagrees with the type's compile-time semcon (= schema
+    /// dialect disagrees with the type's compile-time dialect (= schema
     /// drift between when the type was registered and now).
-    pub fn agrees_on<T: HasSemcon>(&self) -> bool {
-        self.lookup_semcon::<T>() == Some(T::SEMCON)
+    pub fn agrees_on<T: HasDialect>(&self) -> bool {
+        self.lookup_dialect::<T>() == Some(T::DIALECT)
     }
 
     /// Number of registered types.
@@ -104,30 +104,30 @@ impl SemconRegistry {
     }
 }
 
-/// Error returned when re-registration would overwrite a type's semcon.
+/// Error returned when re-registration would overwrite a type's dialect.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SemconConflict {
+pub struct DialectConflict {
     pub type_name: &'static str,
-    pub registered: Semcon,
-    pub requested: Semcon,
+    pub registered: Dialect,
+    pub requested: Dialect,
 }
 
-impl core::fmt::Display for SemconConflict {
+impl core::fmt::Display for DialectConflict {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
-            "semcon conflict for {}: registered {:?} vs requested {:?}",
+            "dialect conflict for {}: registered {:?} vs requested {:?}",
             self.type_name, self.registered, self.requested
         )
     }
 }
 
-impl std::error::Error for SemconConflict {}
+impl std::error::Error for DialectConflict {}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::signature::{semcon_from_struct, FieldSignature};
+    use crate::signature::{dialect_from_struct, FieldSignature};
 
     struct Position {
         _x: f32,
@@ -135,10 +135,10 @@ mod tests {
         _z: f32,
     }
 
-    impl HasSemcon for Position {
-        const SEMCON: Semcon = {
+    impl HasDialect for Position {
+        const DIALECT: Dialect = {
             // Compile-time const isn't possible with hash function; use
-            // a literal for the test. Real types will use semcon_from_struct
+            // a literal for the test. Real types will use dialect_from_struct
             // at runtime via a one-time init or a build script.
             ParticleId::from_hash([0xAA; 32])
         };
@@ -146,43 +146,43 @@ mod tests {
 
     struct Velocity(f32, f32, f32);
 
-    impl HasSemcon for Velocity {
-        const SEMCON: Semcon = ParticleId::from_hash([0xBB; 32]);
+    impl HasDialect for Velocity {
+        const DIALECT: Dialect = ParticleId::from_hash([0xBB; 32]);
     }
 
     use evy_ecs_storage::ParticleId;
 
     #[test]
     fn register_and_lookup_by_type() {
-        let mut reg = SemconRegistry::new();
+        let mut reg = DialectRegistry::new();
         reg.register::<Position>().unwrap();
-        assert_eq!(reg.lookup_semcon::<Position>(), Some(Position::SEMCON));
+        assert_eq!(reg.lookup_dialect::<Position>(), Some(Position::DIALECT));
     }
 
     #[test]
     fn register_and_lookup_by_particle() {
-        let mut reg = SemconRegistry::new();
+        let mut reg = DialectRegistry::new();
         reg.register::<Position>().unwrap();
-        let entry = reg.lookup_type(Position::SEMCON).unwrap();
-        assert_eq!(entry.semcon, Position::SEMCON);
+        let entry = reg.lookup_type(Position::DIALECT).unwrap();
+        assert_eq!(entry.dialect, Position::DIALECT);
     }
 
     #[test]
     fn agrees_on_after_registration() {
-        let mut reg = SemconRegistry::new();
+        let mut reg = DialectRegistry::new();
         reg.register::<Position>().unwrap();
         assert!(reg.agrees_on::<Position>());
     }
 
     #[test]
     fn agrees_on_returns_false_for_unregistered_type() {
-        let reg = SemconRegistry::new();
+        let reg = DialectRegistry::new();
         assert!(!reg.agrees_on::<Position>());
     }
 
     #[test]
     fn re_register_same_type_is_idempotent() {
-        let mut reg = SemconRegistry::new();
+        let mut reg = DialectRegistry::new();
         reg.register::<Position>().unwrap();
         // Second registration must not error.
         reg.register::<Position>().unwrap();
@@ -191,25 +191,25 @@ mod tests {
 
     #[test]
     fn distinct_types_register_distinctly() {
-        let mut reg = SemconRegistry::new();
+        let mut reg = DialectRegistry::new();
         reg.register::<Position>().unwrap();
         reg.register::<Velocity>().unwrap();
         assert_eq!(reg.len(), 2);
-        assert_eq!(reg.lookup_semcon::<Position>(), Some(Position::SEMCON));
-        assert_eq!(reg.lookup_semcon::<Velocity>(), Some(Velocity::SEMCON));
+        assert_eq!(reg.lookup_dialect::<Position>(), Some(Position::DIALECT));
+        assert_eq!(reg.lookup_dialect::<Velocity>(), Some(Velocity::DIALECT));
     }
 
     #[test]
     fn unregistered_lookup_returns_none() {
         struct Unregistered;
-        let reg = SemconRegistry::new();
-        assert_eq!(reg.lookup_semcon::<Unregistered>(), None);
+        let reg = DialectRegistry::new();
+        assert_eq!(reg.lookup_dialect::<Unregistered>(), None);
     }
 
     #[test]
-    fn derived_semcons_from_signature_round_trip() {
+    fn derived_dialects_from_signature_round_trip() {
         // Realistic use: derive at runtime and register.
-        let sc = semcon_from_struct(
+        let sc = dialect_from_struct(
             "Transform",
             &[
                 FieldSignature::new("x", "f32"),

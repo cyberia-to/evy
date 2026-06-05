@@ -4,7 +4,7 @@ use evy_diagnostic::{Diagnostic, PmuProbe, ProbeMode};
 use evy_ecs_storage::ShardStorage;
 use evy_engine_dispatch::{DispatchError, DispatchScheduler, PlatformCapabilities};
 use evy_radio::RadioClient;
-use evy_semcon::SemconRegistry;
+use evy_dialect::DialectRegistry;
 
 use crate::engine::Engine;
 
@@ -71,7 +71,7 @@ impl EngineBuilder {
         } else {
             None
         };
-        let semcon_registry = SemconRegistry::new();
+        let dialect_registry = DialectRegistry::new();
         let probe = PmuProbe::new(self.pmu_mode);
         let diagnostic = Diagnostic::new();
 
@@ -80,7 +80,7 @@ impl EngineBuilder {
             storage,
             scheduler,
             radio,
-            semcon_registry,
+            dialect_registry,
             probe,
             diagnostic,
         ))

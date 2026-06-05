@@ -1,9 +1,9 @@
 [package]
-name = "evy_semcon"
+name = "evy_dialect"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "evy: semantic conventions — particle-identified component schemas"
+description = "evy: dialects — particle-identified component schemas"
 
 [dependencies]
 evy_ecs_storage = { path = "../evy_ecs_storage" }

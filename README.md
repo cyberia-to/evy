@@ -61,7 +61,7 @@ intact bevy crates come from crates.io as versioned deps (~20 crates: bevy_app, 
 | `evy_prysm_core` | ~1,500 | 47 | Π protocol + Φ sizing + K containers + fold + motion + emotion |
 | `evy_radio` | ~330 | 6 | channel bridge to iroh daemon (stub; real iroh in session 11.2) |
 | `evy_diagnostic` | ~370 | 11 | wall + PMU measurement, Diagnostic accumulator |
-| `evy_semcon` | ~300 | 14 | semantic conventions + registry |
+| `evy_dialect` | ~300 | 14 | dialects + registry |
 | `evy_engine_core` | ~340 | 9 | assembly: `Engine::builder()` wires everything |
 
 run the hello example:

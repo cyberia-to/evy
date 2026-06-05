@@ -457,7 +457,7 @@ a component instance is conceptually a [[cyberlink]] `ask(ν, p, q, τ, a, v, t)
 - ν: neuron — who set this component
 - p: from-particle — the entity
 - q: to-particle — the component value
-- τ: type — semcon for this component
+- τ: type — dialect for this component
 - a: stake — 0 for ephemeral components
 - v: valence — +1 default
 - t: time — tick
@@ -606,7 +606,7 @@ these crates are used unmodified from crates.io. ~52K LOC of substrate
 | bevy_log | tracing-based logging |
 | bevy_math | NEON wrapper added below; primitives intact |
 | bevy_color | color spaces |
-| bevy_reflect | type reflection (extended via wrapper for semcons) |
+| bevy_reflect | type reflection (extended via wrapper for dialects) |
 | bevy_utils, bevy_macro_utils, bevy_derive, bevy_ptr, bevy_platform | substrate utilities |
 | bevy_picking | ray picking |
 | bevy_camera | camera component model |
@@ -668,7 +668,7 @@ these crates do not exist in [[bevy]]. they are the substance of evy
 | evy_prysm_core | Π + Φ + K + fold + motion + emotion (core protocol, no atoms) | ~2K | ✓ landed (1500 LOC, 47 tests) |
 | evy_radio | channel bridge to iroh daemon | ~2K | ✓ session 1 landed (330 LOC, 6 tests) with stub daemon. session 2 = real iroh; session 3 = radio:// AssetSource |
 | evy_diagnostic | wall + PMU measurement + Diagnostic accumulator | — | ✓ landed (370 LOC, 11 tests) — extends spec; was implicit |
-| evy_semcon | semantic conventions + registry | ~800 | ✓ landed (300 LOC, 14 tests) |
+| evy_dialect | dialects + registry | ~800 | ✓ landed (300 LOC, 14 tests) |
 | evy_nnapi_runtime | Android NPU dispatch parallel to [[rane]]; glia .model → NNAPI translation | ~2K | pending Android bring-up |
 | evy_render_compute | aruminium compute passes as DispatchNodes | ~1K | blocked on aruminium step 3 |
 | evy_neural_material | model-driven Material trait + [[glia]] bridge | ~1.5K | blocked on steps 3+4 |
@@ -791,7 +791,7 @@ implementation sequence. earlier steps unblock later ones
 16. ⛔ evy_nnapi_runtime. ~5 sessions, blocked on step 4 + Android
 17. ✓ PMU-backed `evy_diagnostic` + thermal/power telemetry. ~3 sessions, **landed** (370 LOC, 11 tests, PMU upgrade path with Wall fallback)
 
-plus landed extras: evy_semcon (300 LOC, 14 tests; particle-identified component schemas), evy_engine_core (340 LOC, 9 tests; assembly + end-to-end smoke test)
+plus landed extras: evy_dialect (300 LOC, 14 tests; particle-identified component schemas), evy_engine_core (340 LOC, 9 tests; assembly + end-to-end smoke test)
 
 **progress: 11 of 17 steps complete or substantially started. step 3 reframed: aruminium gains raster (proposal drafted) — the earlier device-sharing path was abandoned after numbers showed wgpu+aruminium coexistence taxes 9–13 ms/frame on Apple Silicon. ~25 sessions of downstream work (steps 4.3-4.4, 5, 6, 8, 9, 10, 14) unblock once aruminium raster lands.**
 

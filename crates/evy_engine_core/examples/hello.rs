@@ -7,7 +7,7 @@
 
 use evy_engine_core::{
     CommitPolicy, DispatchCtx, DispatchNode, Engine, EngineKind, EvyComponent, Goldilocks,
-    HasSemcon, Namespace, ParticleId, Semcon, ShardRef,
+    HasDialect, Namespace, ParticleId, Dialect, ShardRef,
 };
 
 /// One game state component — a tick counter for a single particle.
@@ -15,10 +15,10 @@ struct GameState {
     tick: u64,
 }
 
-impl HasSemcon for GameState {
-    // Real impl would call `semcon_from_struct(...)` at init; for a const
+impl HasDialect for GameState {
+    // Real impl would call `dialect_from_struct(...)` at init; for a const
     // we just pick a fingerprint byte.
-    const SEMCON: Semcon = ParticleId::from_hash([0x01; 32]);
+    const DIALECT: Dialect = ParticleId::from_hash([0x01; 32]);
 }
 
 impl EvyComponent for GameState {
@@ -85,10 +85,10 @@ fn main() {
 
     // Register the component schema.
     engine
-        .semcon_registry_mut()
+        .dialect_registry_mut()
         .register::<GameState>()
-        .expect("semcon registration");
-    println!("\nregistered semcons: {}", engine.semcon_registry().len());
+        .expect("dialect registration");
+    println!("\nregistered dialects: {}", engine.dialect_registry().len());
 
     // Add the dispatch node.
     let particle = ParticleId::from_entity(42, 0);
