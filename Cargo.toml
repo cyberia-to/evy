@@ -24,7 +24,7 @@ rane = { path = "../honeycrisp/rane" }
 # soft3 components (path deps to sibling repos)
 bbg = { path = "../bbg/rs" }
 hemera = { package = "cyber-hemera", path = "../hemera/rs" }
-nebu = { package = "cyb-nebu", path = "../strata/nebu/rs" }
+nebu = { package = "strata-nebu", path = "../strata/nebu/rs" }
 
 # bevy adopted-intact crates (versioned from crates.io)
 bevy_app = "=0.18.1"

@@ -312,7 +312,7 @@ dependencies = [
 name = "bbg"
 version = "0.1.0"
 dependencies = [
- "cyb-nebu",
+ "strata-nebu",
  "cyber-hemera",
  "cyber-lens",
  "fjall",
@@ -1691,7 +1691,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cyb-genies"
+name = "strata-genies"
 version = "0.1.0"
 dependencies = [
  "strata-core",
@@ -1700,15 +1700,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "cyb-jali"
+name = "strata-jali"
 version = "0.1.0"
 dependencies = [
- "cyb-nebu",
+ "strata-nebu",
  "strata-core",
 ]
 
 [[package]]
-name = "cyb-kuro"
+name = "strata-kuro"
 version = "0.1.0"
 dependencies = [
  "strata-core",
@@ -1722,15 +1722,15 @@ version = "0.1.0"
 dependencies = [
  "cyb-lens-brakedown",
  "cyb-lens-core",
- "cyb-nebu",
- "cyb-trop",
+ "strata-nebu",
+ "strata-trop",
 ]
 
 [[package]]
 name = "cyb-lens-binius"
 version = "0.1.0"
 dependencies = [
- "cyb-kuro",
+ "strata-kuro",
  "cyb-lens-core",
  "cyber-hemera",
 ]
@@ -1740,7 +1740,7 @@ name = "cyb-lens-brakedown"
 version = "0.1.0"
 dependencies = [
  "cyb-lens-core",
- "cyb-nebu",
+ "strata-nebu",
  "cyber-hemera",
 ]
 
@@ -1748,7 +1748,7 @@ dependencies = [
 name = "cyb-lens-core"
 version = "0.1.0"
 dependencies = [
- "cyb-nebu",
+ "strata-nebu",
  "cyber-hemera",
  "strata-core",
  "strata-proof",
@@ -1758,23 +1758,23 @@ dependencies = [
 name = "cyb-lens-ikat"
 version = "0.1.0"
 dependencies = [
- "cyb-jali",
+ "strata-jali",
  "cyb-lens-brakedown",
  "cyb-lens-core",
- "cyb-nebu",
+ "strata-nebu",
 ]
 
 [[package]]
 name = "cyb-lens-porphyry"
 version = "0.1.0"
 dependencies = [
- "cyb-genies",
+ "strata-genies",
  "cyb-lens-core",
  "cyber-hemera",
 ]
 
 [[package]]
-name = "cyb-nebu"
+name = "strata-nebu"
 version = "0.1.0"
 dependencies = [
  "strata-compute",
@@ -1784,7 +1784,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cyb-trop"
+name = "strata-trop"
 version = "0.1.0"
 dependencies = [
  "strata-core",
@@ -2093,7 +2093,7 @@ name = "evy_ecs_storage"
 version = "0.1.0"
 dependencies = [
  "bbg",
- "cyb-nebu",
+ "strata-nebu",
  "cyber-hemera",
  "evy_platform_caps",
 ]
@@ -3288,7 +3288,7 @@ version = "0.1.0"
 dependencies = [
  "cyb-lens-brakedown",
  "cyb-lens-core",
- "cyb-nebu",
+ "strata-nebu",
  "cyber-hemera",
 ]
 
@@ -5562,7 +5562,7 @@ dependencies = [
 name = "zheng"
 version = "0.1.0"
 dependencies = [
- "cyb-nebu",
+ "strata-nebu",
  "cyber-hemera",
  "cyber-lens",
  "nox",
