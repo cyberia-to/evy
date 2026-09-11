@@ -83,7 +83,7 @@ impl Engine {
         let plan = self.scheduler.plan(&self.nodes, self.fallback)?;
 
         let mut ctx = DispatchCtx::new(&mut self.storage, self.frame, self.tick);
-        self.scheduler.dispatch_frame(&mut self.nodes, &plan, &mut ctx);
+        self.scheduler.dispatch_frame(&mut self.nodes, &plan, &mut ctx)?;
 
         // Drain any radio events; for v0 we record gossip into a sink
         // accessible via radio_responses() / radio_gossip() (below).
@@ -93,13 +93,13 @@ impl Engine {
         Ok(plan)
     }
 
-    /// Commit at the tick boundary. Returns the shard sub-root.
-    /// Bumps the tick counter.
-    pub fn commit_tick(&mut self) -> [u8; 32] {
+    /// Commit at the tick boundary. Returns the storage change identity.
+    /// Bumps the tick counter only after a successful commit.
+    pub fn commit_tick(&mut self) -> evy_ecs_storage::StorageResult<[u8; 32]> {
         let mut ctx = DispatchCtx::new(&mut self.storage, self.frame, self.tick);
-        let root = self.scheduler.commit_tick(&mut ctx);
+        let root = self.scheduler.commit_tick(&mut ctx)?;
         self.tick = self.tick.saturating_add(1);
-        root
+        Ok(root)
     }
 
     /// Drain accumulated radio responses since last call. Empty if no
@@ -168,6 +168,10 @@ impl Engine {
 }
 
 #[cfg(test)]
+#[path = "engine_storage_failures.rs"]
+mod storage_failures;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use evy_diagnostic::Timer;
@@ -192,8 +196,9 @@ mod tests {
         fn commit_policy(&self) -> CommitPolicy {
             CommitPolicy::None
         }
-        fn dispatch(&mut self, _ctx: &mut DispatchCtx<'_>) {
+        fn dispatch(&mut self, _ctx: &mut DispatchCtx<'_>) -> Result<(), DispatchError> {
             self.ran.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            Ok(())
         }
     }
 
@@ -218,9 +223,9 @@ mod tests {
     #[test]
     fn engine_commit_tick_increments_tick() {
         let mut engine = Engine::builder().build().unwrap();
-        let _ = engine.commit_tick();
+        engine.commit_tick().unwrap();
         assert_eq!(engine.tick(), 1);
-        let _ = engine.commit_tick();
+        engine.commit_tick().unwrap();
         assert_eq!(engine.tick(), 2);
     }
 
@@ -284,7 +289,7 @@ mod tests {
 
         let mut engine = Engine::builder().build().unwrap();
         let p = evy_ecs_storage::ParticleId::from_entity(1, 0);
-        engine.storage_mut().put(p, &V(42));
+        engine.storage_mut().put(p, &V(42)).unwrap();
         let v = engine.storage().get::<V>(p).unwrap();
         assert_eq!(v.0, 42);
     }
@@ -342,10 +347,11 @@ mod tests {
             fn reads(&self) -> &[ShardRef] { &[] }
             fn writes(&self) -> &[ShardRef] { &[] }
             fn commit_policy(&self) -> CommitPolicy { CommitPolicy::None }
-            fn dispatch(&mut self, ctx: &mut DispatchCtx<'_>) {
+            fn dispatch(&mut self, ctx: &mut DispatchCtx<'_>) -> Result<(), DispatchError> {
                 let n = self.count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 let p = evy_ecs_storage::ParticleId::from_entity(99, 0);
-                ctx.storage.put(p, &GameState(n));
+                ctx.storage.put(p, &GameState(n))?;
+                Ok(())
             }
         }
         engine.add_node(Box::new(CounterNode { count: counter.clone() }));
@@ -376,7 +382,7 @@ mod tests {
 
         // 8. Commit at tick boundary; ephemeral writes produce no
         // change to the root (deterministic identity).
-        let _ = engine.commit_tick();
+        engine.commit_tick().unwrap();
         assert_eq!(engine.tick(), 1);
     }
 }

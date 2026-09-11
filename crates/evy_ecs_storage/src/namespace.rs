@@ -48,7 +48,7 @@ mod tests {
     #[test]
     fn dim_constants_align() {
         assert_eq!(Namespace::Particles.as_u8(), 0);
-        assert_eq!(Namespace::Ephemeral.as_u8(), 12);
+        assert_eq!(Namespace::Ephemeral.as_u8(), 13);
     }
 
     #[test]

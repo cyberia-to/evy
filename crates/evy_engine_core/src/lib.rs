@@ -7,7 +7,7 @@
 //! let mut engine = Engine::builder().build()?;
 //! engine.add_node(my_dispatch_node);
 //! engine.run_frame()?;
-//! engine.commit_tick();
+//! engine.commit_tick()?;
 //! ```
 //!
 //! The engine holds:

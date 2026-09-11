@@ -180,11 +180,20 @@ evy adopts [[bbg]]'s `ShardStore` trait verbatim (bbg/specs/storage.md). there i
 ```rust
 trait ShardStore {
     fn get(&self, dimension: u8, key: &[u8; 32]) -> Option<&[FieldElement]>;
-    fn put(&mut self, dimension: u8, key: &[u8; 32], value: &[FieldElement]);
-    fn dirty_entries(&self) -> impl Iterator<Item = (u8, [u8; 32], &[FieldElement])>;
-    fn commit(&mut self) -> [u8; 32];
+    fn put(&mut self, dimension: u8, key: [u8; 32], value: Vec<FieldElement>) -> StorageResult<()>;
+    fn dirty_entries(&self) -> &[(u8, [u8; 32], Vec<FieldElement>)];
+    fn commit(&mut self) -> StorageResult<[u8; 32]>;
 }
 ```
+
+`get`, `get_mut` and `iter` are borrowed cache access. Owned `read` and bounded
+`scan` access persisted data after reopening. Evy's typed wrapper propagates
+BBG errors from reads, writes, dirty marking, deletion and commit. A successful
+commit returns the backend's change identity; BBG computes authenticated state
+roots independently. Dispatch and tick commits return errors to the engine
+caller; a failed dispatch or commit does not advance its frame or tick counter.
+Already staged mutations require caller recovery and are not rolled back by the
+scheduler.
 
 quoting bbg's spec: "the polynomial commitment provides authentication. the local data structure provides access. they are INDEPENDENT — the store doesn't know about polynomials, the polynomial doesn't know about storage." this separation is the keystone. evy inherits it
 

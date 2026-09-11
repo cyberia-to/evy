@@ -111,27 +111,32 @@ impl DispatchScheduler {
         nodes: &mut [Box<dyn DispatchNode>],
         plan: &SchedulePlan,
         ctx: &mut DispatchCtx<'a>,
-    ) {
+    ) -> Result<(), DispatchError> {
         // Attach engine pool references into the ctx for this frame's
         // dispatches. Pools live on the scheduler; ctx borrows them.
         ctx.amx_pool = self.amx_pool.as_ref();
         ctx.ane_pool = self.ane_pool.as_ref();
 
         for &idx in &plan.order {
-            nodes[idx].dispatch(ctx);
+            if let Err(error) = nodes[idx].dispatch(ctx) {
+                ctx.amx_pool = None;
+                ctx.ane_pool = None;
+                return Err(error);
+            }
         }
 
         // Drop the borrows when the frame ends. (Bevy systems wouldn't
         // typically read ctx after dispatch returns; this is defensive.)
         ctx.amx_pool = None;
         ctx.ane_pool = None;
+        Ok(())
     }
 
-    /// Commit the storage layer at a tick boundary. Returns the shard
-    /// sub-root; the authoritative BBG_root is composed by `bbg::Bbg`.
+    /// Commit the storage layer at a tick boundary. Returns its change identity
+    /// or a storage error. BBG computes authenticated state roots independently.
     /// Caller decides when to call this (typically every Nth frame; see
     /// `PlatformCapabilities::tick_rate_hz`).
-    pub fn commit_tick(&mut self, ctx: &mut DispatchCtx<'_>) -> [u8; 32] {
+    pub fn commit_tick(&mut self, ctx: &mut DispatchCtx<'_>) -> evy_ecs_storage::StorageResult<[u8; 32]> {
         ctx.storage.commit()
     }
 
@@ -234,8 +239,9 @@ mod tests {
         fn commit_policy(&self) -> CommitPolicy {
             self.commit_policy
         }
-        fn dispatch(&mut self, _ctx: &mut DispatchCtx<'_>) {
+        fn dispatch(&mut self, _ctx: &mut DispatchCtx<'_>) -> Result<(), DispatchError> {
             self.log.lock().unwrap().push(self.name);
+            Ok(())
         }
         fn label(&self) -> &str {
             self.name
@@ -282,7 +288,7 @@ mod tests {
         let mut ctx = DispatchCtx::new(&mut storage, 0, 0);
         let mut scheduler = scheduler;
         let mut nodes = nodes;
-        scheduler.dispatch_frame(&mut nodes, &plan, &mut ctx);
+        scheduler.dispatch_frame(&mut nodes, &plan, &mut ctx).unwrap();
 
         assert_eq!(*log.lock().unwrap(), vec!["a", "b", "c"]);
     }
@@ -334,7 +340,7 @@ mod tests {
         let mut ctx = DispatchCtx::new(&mut storage, 0, 0);
         let mut scheduler = scheduler;
         let mut nodes = nodes;
-        scheduler.dispatch_frame(&mut nodes, &plan, &mut ctx);
+        scheduler.dispatch_frame(&mut nodes, &plan, &mut ctx).unwrap();
 
         assert_eq!(*log.lock().unwrap(), vec!["writer", "reader"]);
     }
@@ -407,9 +413,9 @@ mod tests {
         let mut scheduler = scheduler;
         let mut storage = fresh_storage();
         let mut ctx = DispatchCtx::new(&mut storage, 0, 0);
-        let root = scheduler.commit_tick(&mut ctx);
+        let root = scheduler.commit_tick(&mut ctx).unwrap();
         // empty commit is deterministic; repeat must produce the same root.
-        let root2 = scheduler.commit_tick(&mut ctx);
+        let root2 = scheduler.commit_tick(&mut ctx).unwrap();
         assert_eq!(root, root2);
     }
 
@@ -434,13 +440,14 @@ mod tests {
         fn commit_policy(&self) -> CommitPolicy {
             CommitPolicy::None
         }
-        fn dispatch(&mut self, ctx: &mut DispatchCtx<'_>) {
+        fn dispatch(&mut self, ctx: &mut DispatchCtx<'_>) -> Result<(), DispatchError> {
             let pool = ctx.amx_pool.expect("AMX pool must be present on Apple Silicon");
             // Simulate AMX-heavy work: the closure runs on a worker with
             // AMX active. For the test we just return a sentinel.
             let rx = pool.spawn(|| 0xCAFEBABEu64);
             let val = rx.recv().unwrap();
             self.result_log.lock().unwrap().push(val);
+            Ok(())
         }
     }
 
@@ -458,7 +465,7 @@ mod tests {
         let mut storage = fresh_storage();
         let mut ctx = DispatchCtx::new(&mut storage, 0, 0);
         let mut nodes = nodes;
-        scheduler.dispatch_frame(&mut nodes, &plan, &mut ctx);
+        scheduler.dispatch_frame(&mut nodes, &plan, &mut ctx).unwrap();
 
         assert_eq!(*log.lock().unwrap(), vec![0xCAFEBABEu64]);
     }
@@ -474,7 +481,7 @@ mod tests {
         let nodes: Vec<Box<dyn DispatchNode>> = vec![];
         let plan = scheduler.plan(&nodes, FallbackPolicy::Skip).unwrap();
         let mut nodes = nodes;
-        scheduler.dispatch_frame(&mut nodes, &plan, &mut ctx);
+        scheduler.dispatch_frame(&mut nodes, &plan, &mut ctx).unwrap();
 
         assert!(ctx.amx_pool.is_none());
         assert!(ctx.ane_pool.is_none());
@@ -507,7 +514,7 @@ mod tests {
         let mut ctx = DispatchCtx::new(&mut storage, 0, 0);
         let mut scheduler = scheduler;
         let mut nodes = nodes;
-        scheduler.dispatch_frame(&mut nodes, &plan, &mut ctx);
+        scheduler.dispatch_frame(&mut nodes, &plan, &mut ctx).unwrap();
 
         let trace = log.lock().unwrap().clone();
         // A must come before B (Coins write→read dep).
