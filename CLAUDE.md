@@ -81,7 +81,7 @@ state what something is directly. never define by negation. never use bold (`**t
 
 ## graph vocabulary
 
-use root terms from the cybergraph, never aliases. particle not CID, neuron not user, cyberlink not edge. see [[cyber/cyberia/midao/dev]] for the full rule + substitution table.
+use root terms from the cybergraph, never aliases. particle not CID, neuron not user, cyberlink not edge. see [[cyberia/midao/dev]] for the full rule + substitution table.
 
 ## shell: nushell
 
