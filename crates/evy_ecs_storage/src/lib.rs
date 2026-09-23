@@ -18,6 +18,7 @@ pub use component::EvyComponent;
 pub use namespace::Namespace;
 pub use particle::ParticleId;
 pub use storage::{ReservePoolError, ShardStorage};
+pub use bbg::storage::{ScanLimits, StorageError, StorageResult};
 
 // Re-export the field element type so callers don't need a direct nebu dep.
 pub use nebu::Goldilocks;

@@ -14,6 +14,8 @@ pub enum DispatchError {
     /// A required engine pool (AmxTaskPool / AneTaskPool) failed to
     /// initialize at scheduler construction. The dispatch DAG cannot start.
     PoolInitFailed(String),
+    /// Storage access or commit failed, including an unresolved commit outcome.
+    Storage(evy_ecs_storage::StorageError),
 }
 
 impl core::fmt::Display for DispatchError {
@@ -22,8 +24,22 @@ impl core::fmt::Display for DispatchError {
             Self::EngineUnavailable(e) => write!(f, "engine unavailable: {e:?}"),
             Self::CycleDetected => write!(f, "dispatch DAG contains a cycle"),
             Self::PoolInitFailed(msg) => write!(f, "engine pool init failed: {msg}"),
+            Self::Storage(error) => error.fmt(f),
         }
     }
 }
 
-impl std::error::Error for DispatchError {}
+impl std::error::Error for DispatchError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Storage(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+impl From<evy_ecs_storage::StorageError> for DispatchError {
+    fn from(error: evy_ecs_storage::StorageError) -> Self {
+        Self::Storage(error)
+    }
+}
