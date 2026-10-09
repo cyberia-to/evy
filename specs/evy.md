@@ -386,7 +386,7 @@ a 60Hz frame is 16.6ms. allocation across engines, default policy:
 
 engines run concurrently. the 31.6ms theoretical sum compresses to 16.6ms wall time because they execute on independent silicon. Ane runs without contending with Gpu — that is the structural advantage evy extracts from [[Apple Silicon]]
 
-at tick boundary (every Nth frame), an additional commit cost: ~50μs for BBG polynomial recommit + proof generation. amortized across frames it is invisible; if a single tick batches many signals it can spike. tick rate is tunable per game (10–30Hz typical)
+at tick boundary (every Nth frame), an additional commit cost: BBG polynomial recommit + proof generation, unmeasured since [[soft3/proposals/proof-system-repair|the proof-system repair]]. it amortizes across frames; if a single tick batches many signals it can spike. tick rate is tunable per game (10–30Hz typical)
 
 ---
 
