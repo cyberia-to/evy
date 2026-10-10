@@ -738,7 +738,7 @@ honest gaps that need resolution before or during implementation
 | OQ-1 | unimem backend allocation policy: static per-shard cap vs growable via chained IOSurfaces; rebind GPU descriptors on growth | affects bundle insertion failure mode |
 | OQ-2 | cross-world `ShardStore` sharing: how do RenderApp + MainApp reference the same shard without violating bevy's world isolation; lifetime + Arc semantics | architectural, blocks step 3 of attack order |
 | OQ-3 | per-frame inference batching: glia API needs to support batched per-particle eval, not arbitrary .model | blocks neural material payoff |
-| OQ-4 | bbg verification cost vs framerate: 10–50μs per particle is too slow at 120Hz; cache+invalidate strategy needed; ties to tick boundary policy (OQ-11) | affects bbg storage UX |
+| OQ-4 | bbg verification cost vs framerate: verifying a particle against BBG_root is a PCS opening, measured in the ms range today for the succinct profile (7.96 ms verify for the hash.tri fixture, zheng `audit/succinct-profile-2026-10.md`; goal ≤ 1 ms) — per-particle verification inside a 120Hz frame (8.3 ms) is out of reach; cache+invalidate strategy needed; ties to tick boundary policy (OQ-11) | affects bbg storage UX |
 | OQ-5 | deterministic neural eval across M1/M2/M3/M4 ANE: float differences break consensus when inference drives state | gameplay-impacting inference outputs need quantization rule |
 | OQ-6 | speculation horizon: when canonical content arrives after a player saw speculation, what does the player see | game-design problem, not just engineering |
 | OQ-7 | radio bootstrap on cold start: needs peer seed list or HTTP fallback | UX cliff for first launch |
