@@ -1,4 +1,6 @@
-# evy — claude code instructions
+# AGENTS.md — evy
+
+> the doctrine of the home is `~/cyber/AGENTS.md`; it applies here first. Claude Code receives both files at session start through `~/.config/cyber/agents-md.nu`; other agents read them in order.
 
 ## project
 
