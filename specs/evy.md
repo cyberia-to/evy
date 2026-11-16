@@ -386,7 +386,7 @@ a 60Hz frame is 16.6ms. allocation across engines, default policy:
 
 engines run concurrently. the 31.6ms theoretical sum compresses to 16.6ms wall time because they execute on independent silicon. Ane runs without contending with Gpu — that is the structural advantage evy extracts from [[Apple Silicon]]
 
-at tick boundary (every Nth frame), an additional commit cost: BBG polynomial recommit + proof generation, unmeasured since [[soft3/proposals/proof-system-repair|the proof-system repair]]. it amortizes across frames; if a single tick batches many signals it can spike. tick rate is tunable per game (10–30Hz typical)
+at tick boundary (every Nth frame), an additional commit cost: BBG polynomial recommit + proof generation, unmeasured since [[soft3/projects/proof-system-repair|the proof-system repair]]. it amortizes across frames; if a single tick batches many signals it can spike. tick rate is tunable per game (10–30Hz typical)
 
 ---
 
@@ -775,7 +775,7 @@ implementation sequence. earlier steps unblock later ones
 
 1. ✓ evy_platform_caps + evy_ecs_storage: probe + FallbackPolicy + `bbg::ShardStore` adapter. memory + unimem backends. ~3 sessions, **landed**
 2. ✓ bevy_tasks extension: AmxTaskPool + AneTaskPool. ~1 session, **landed as separate crate `evy_engine_tasks`** (spec deviation; bevy_tasks moves from FORK to INTACT)
-3. ⏳ aruminium gains raster support — `RenderPipelineState` + `RenderPassDescriptor` + `RenderEncoder` + render-target `Texture`, so aruminium is a complete renderer (not just compute) on Apple Silicon. ~3–4 sessions. **proposal drafted** at `~/cyber/honeycrisp/aruminium/.claude/plans/raster-support.md`. The earlier device-sharing constructors (commit `26ba16b`) were reverted (`48f1bc8`) because the wgpu+aruminium coexistence model they enabled costs 9–13 ms/frame on Apple Silicon
+3. ⏳ aruminium gains raster support — `RenderPipelineState` + `RenderPassDescriptor` + `RenderEncoder` + render-target `Texture`, so aruminium is a complete renderer (not just compute) on Apple Silicon. ~3–4 sessions. **project drafted** at `~/cyber/honeycrisp/aruminium/.claude/plans/raster-support.md`. The earlier device-sharing constructors (commit `26ba16b`) were reverted (`48f1bc8`) because the wgpu+aruminium coexistence model they enabled costs 9–13 ms/frame on Apple Silicon
 4. ◐ evy_engine_dispatch: `DispatchNode` trait, scheduler, commit-policy, capability-aware fallback. ~4 sessions, **sessions 1-2 landed** (trait + scheduler skeleton + engine pool routing); sessions 3-4 (parallel layer + real cross-engine sync) blocked on step 3
 5. ⛔ bevy_mesh + bevy_image on unimem `ShardStore`; meshes/textures stop uploading. ~3 sessions, blocked on step 3
 6. ⛔ bevy_transform with AMX propagation. first visible perf win. ~2 sessions, blocked on step 4 complete
@@ -793,7 +793,7 @@ implementation sequence. earlier steps unblock later ones
 
 plus landed extras: evy_dialect (300 LOC, 14 tests; particle-identified component schemas), evy_engine_core (340 LOC, 9 tests; assembly + end-to-end smoke test)
 
-**progress: 11 of 17 steps complete or substantially started. step 3 reframed: aruminium gains raster (proposal drafted) — the earlier device-sharing path was abandoned after numbers showed wgpu+aruminium coexistence taxes 9–13 ms/frame on Apple Silicon. ~25 sessions of downstream work (steps 4.3-4.4, 5, 6, 8, 9, 10, 14) unblock once aruminium raster lands.**
+**progress: 11 of 17 steps complete or substantially started. step 3 reframed: aruminium gains raster (project drafted) — the earlier device-sharing path was abandoned after numbers showed wgpu+aruminium coexistence taxes 9–13 ms/frame on Apple Silicon. ~25 sessions of downstream work (steps 4.3-4.4, 5, 6, 8, 9, 10, 14) unblock once aruminium raster lands.**
 
 estimated total: ~69 sessions (~180–210 pomodoros, 35–42 days of focused work). this is the substantial-but-tractable scope of v1 including Android-out-of-the-box
 

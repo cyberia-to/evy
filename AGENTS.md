@@ -17,7 +17,7 @@ evy/
 ├── forks/            16 bevy crates we modify (forked from v0.18.1 source)
 ├── crates/           evy-specific crates (see §14 of spec for the ~24-crate inventory)
 ├── specs/            architecture spec (evy.md is canonical)
-├── roadmap/          open proposals (proposal lifecycle: draft → accepted → migrate to specs)
+├── roadmap/          open projects (project lifecycle: draft → accepted → migrate to specs)
 ├── .claude/plans/    persistent agent state
 └── Cargo.toml        workspace + [patch.crates-io] redirecting forked deps
 ```
