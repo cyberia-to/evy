@@ -26,7 +26,7 @@ evy/
 ├── forks/                 16 bevy crates we modify (forked from v0.18.1)
 ├── crates/                9 evy-specific crates landed (~24 planned)
 ├── specs/                 architecture spec (evy.md is canonical)
-├── roadmap/               open proposals
+├── roadmap/               open projects
 ├── .claude/plans/         agent state
 ├── Cargo.toml             workspace + [patch.crates-io] redirecting forked crates
 ├── CLAUDE.md              agent instructions
@@ -70,7 +70,7 @@ run the hello example:
 cargo run -p evy_engine_core --example hello
 ```
 
-step 3 (aruminium device-sharing) was reverted after analysis showed wgpu+aruminium coexistence taxes 9–13 ms/frame on Apple Silicon. corrected architecture: aruminium is THE renderer (raster + compute) on Apple Silicon; wgpu is the portable fallback for non-Apple targets. raster support proposal at `~/cyber/honeycrisp/aruminium/.claude/plans/raster-support.md` — implementing now.
+step 3 (aruminium device-sharing) was reverted after analysis showed wgpu+aruminium coexistence taxes 9–13 ms/frame on Apple Silicon. corrected architecture: aruminium is THE renderer (raster + compute) on Apple Silicon; wgpu is the portable fallback for non-Apple targets. raster support project at `~/cyber/honeycrisp/aruminium/.claude/plans/raster-support.md` — implementing now.
 
 ## license
 
