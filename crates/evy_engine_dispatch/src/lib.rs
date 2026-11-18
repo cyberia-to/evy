@@ -25,5 +25,8 @@ pub use scheduler::{DispatchScheduler, SchedulePlan};
 
 // Re-export so callers don't need to reach into evy_platform_caps.
 pub use evy_platform_caps::{Engine, FallbackPolicy, GpuPath, PlatformCapabilities};
-// Re-export storage types that DispatchNodes consume.
-pub use evy_ecs_storage::{Namespace, ParticleId, ShardStorage};
+// Re-export storage types that DispatchNodes consume, including the error
+// type `commit_tick` returns, so callers need no direct evy_ecs_storage dep.
+pub use evy_ecs_storage::{
+    Namespace, ParticleId, ScanLimits, ShardStorage, StorageError, StorageResult,
+};

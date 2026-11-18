@@ -11,7 +11,7 @@
 //! `TieredStore` composition (memory hot + ssd warm + hdd cold) is a later
 //! enhancement — for session 1 we keep a single hot backend.
 
-use bbg::storage::{MemStore, ShardStore};
+use bbg::storage::{MemStore, ScanLimits, ShardStore, StorageResult};
 use evy_platform_caps::PlatformCapabilities;
 use nebu::Goldilocks;
 
@@ -66,13 +66,13 @@ impl ShardStorage {
 
     /// Insert a typed component for a particle. Replaces any existing value
     /// at the same `(namespace, particle)` slot.
-    pub fn put<T: EvyComponent>(&mut self, particle: ParticleId, value: &T) {
+    pub fn put<T: EvyComponent>(&mut self, particle: ParticleId, value: &T) -> StorageResult<()> {
         let encoded = value.to_goldilocks();
         self.inner
-            .put(T::NAMESPACE.as_u8(), particle.to_bytes(), encoded);
+            .put(T::NAMESPACE.as_u8(), particle.to_bytes(), encoded)
     }
 
-    /// Read a typed component. Returns `None` if absent.
+    /// Read a typed component from the cache. Use `read` for persisted values.
     pub fn get<T: EvyComponent>(&self, particle: ParticleId) -> Option<T> {
         let slice = self.inner.get(T::NAMESPACE.as_u8(), particle.as_bytes())?;
         Some(T::from_goldilocks(slice))
@@ -82,6 +82,30 @@ impl ShardStorage {
     /// shader-visible reads where the consumer can interpret raw u64 words.
     pub fn get_raw<T: EvyComponent>(&self, particle: ParticleId) -> Option<&[Goldilocks]> {
         self.inner.get(T::NAMESPACE.as_u8(), particle.as_bytes())
+    }
+
+    /// Read an owned component, including persisted values, within a field-element budget.
+    pub fn read<T: EvyComponent>(
+        &self,
+        particle: ParticleId,
+        max_elements: usize,
+    ) -> StorageResult<Option<T>> {
+        Ok(self.inner.read(T::NAMESPACE.as_u8(), particle.as_bytes(), max_elements)?
+            .map(|value| T::from_goldilocks(&value)))
+    }
+
+    /// Read an ascending, bounded page after `after`. Disk backends require
+    /// pending writes to be committed first. Propagates scan and decoding errors
+    /// from BBG; the component's own decoder retains its existing contract.
+    pub fn scan<T: EvyComponent>(
+        &self,
+        after: Option<ParticleId>,
+        limits: ScanLimits,
+    ) -> StorageResult<Vec<(ParticleId, T)>> {
+        Ok(self.inner.scan(T::NAMESPACE.as_u8(), after.map(|p| p.to_bytes()), limits)?
+            .into_iter()
+            .map(|(key, value)| (ParticleId(key), T::from_goldilocks(&value)))
+            .collect())
     }
 
     /// Mutable raw slice for in-place updates. Caller must call `mark_dirty`
@@ -97,22 +121,21 @@ impl ShardStorage {
 
     /// Mark a previously-mutated entry dirty for the next `commit()`.
     /// No-op for `Ephemeral` and on disk backends.
-    pub fn mark_dirty<T: EvyComponent>(&mut self, particle: ParticleId) {
+    pub fn mark_dirty<T: EvyComponent>(&mut self, particle: ParticleId) -> StorageResult<()> {
         self.inner
-            .mark_dirty(T::NAMESPACE.as_u8(), particle.to_bytes());
+            .mark_dirty(T::NAMESPACE.as_u8(), particle.to_bytes())
     }
 
     /// Remove a typed component. Returns the previous value if present.
-    pub fn remove<T: EvyComponent>(&mut self, particle: ParticleId) -> Option<T> {
+    pub fn remove<T: EvyComponent>(&mut self, particle: ParticleId) -> StorageResult<Option<T>> {
         let raw = self
             .inner
             .remove(T::NAMESPACE.as_u8(), particle.as_bytes())?;
-        Some(T::from_goldilocks(&raw))
+        Ok(raw.map(|value| T::from_goldilocks(&value)))
     }
 
-    /// Iterate every `(ParticleId, T)` pair in this component's namespace.
-    /// Order is unspecified — backend HashMap iteration order. Decoded on
-    /// the fly; if you only need raw bytes, use `iter_raw`.
+    /// Iterate cached `(ParticleId, T)` pairs in this component's namespace.
+    /// Order is backend-dependent. Use `scan` for bounded persisted reads.
     pub fn iter<T: EvyComponent>(&self) -> impl Iterator<Item = (ParticleId, T)> + '_ {
         self.inner.iter(T::NAMESPACE.as_u8()).map(|(k, v)| {
             // Iterator yields refs whose lifetimes are bound to the boxed
@@ -122,10 +145,10 @@ impl ShardStorage {
         })
     }
 
-    /// Commit dirty entries. Returns this shard's sub-root (hemera hash of
-    /// the dirty list). Authoritative BBG_root is composed by `bbg::Bbg`
-    /// from all shards' sub-roots.
-    pub fn commit(&mut self) -> [u8; 32] {
+    /// Commit pending entries and return the backend's change identity.
+    /// Errors, including an unknown commit outcome, reach the caller unchanged.
+    /// BBG computes authenticated state roots independently of this identity.
+    pub fn commit(&mut self) -> StorageResult<[u8; 32]> {
         self.inner.commit()
     }
 
@@ -177,6 +200,10 @@ fn pick_backend(_caps: &PlatformCapabilities) -> Box<dyn ShardStore> {
     }
     Box::new(MemStore::new())
 }
+
+#[cfg(test)]
+#[path = "storage_failures.rs"]
+mod failures;
 
 #[cfg(test)]
 mod tests {
@@ -234,7 +261,7 @@ mod tests {
         let mut s = fresh_storage();
         let p = ParticleId::from_entity(1, 0);
         let v = Position { x: 1.0, y: 2.0, z: 3.0 };
-        s.put(p, &v);
+        s.put(p, &v).unwrap();
         assert_eq!(s.get::<Position>(p), Some(v));
     }
 
@@ -243,7 +270,7 @@ mod tests {
         let mut s = fresh_storage();
         let p = ParticleId::from_entity(2, 0);
         let b = Balance(1_000_000);
-        s.put(p, &b);
+        s.put(p, &b).unwrap();
         assert_eq!(s.get::<Balance>(p), Some(b));
     }
 
@@ -251,10 +278,10 @@ mod tests {
     fn ephemeral_writes_skip_commit_root() {
         let mut s = fresh_storage();
         let p = ParticleId::from_entity(3, 0);
-        s.put(p, &Position { x: 0.0, y: 0.0, z: 0.0 });
+        s.put(p, &Position { x: 0.0, y: 0.0, z: 0.0 }).unwrap();
         // ephemeral writes don't appear in dirty; commit hashes an empty list.
-        let root_a = s.commit();
-        let root_b = s.commit();
+        let root_a = s.commit().unwrap();
+        let root_b = s.commit().unwrap();
         assert_eq!(root_a, root_b, "no-op commits must be deterministic");
     }
 
@@ -263,10 +290,10 @@ mod tests {
         let mut s = fresh_storage();
         let p1 = ParticleId::from_entity(4, 0);
         let p2 = ParticleId::from_entity(5, 0);
-        s.put(p1, &Balance(100));
-        let root_a = s.commit();
-        s.put(p2, &Balance(200));
-        let root_b = s.commit();
+        s.put(p1, &Balance(100)).unwrap();
+        let root_a = s.commit().unwrap();
+        s.put(p2, &Balance(200)).unwrap();
+        let root_b = s.commit().unwrap();
         assert_ne!(root_a, root_b, "authenticated puts must change shard root");
     }
 
@@ -283,8 +310,8 @@ mod tests {
         let mut s = fresh_storage();
         let p = ParticleId::from_entity(6, 0);
         let v = Position { x: 4.0, y: 5.0, z: 6.0 };
-        s.put(p, &v);
-        assert_eq!(s.remove::<Position>(p), Some(v));
+        s.put(p, &v).unwrap();
+        assert_eq!(s.remove::<Position>(p).unwrap(), Some(v));
         assert_eq!(s.get::<Position>(p), None);
     }
 
@@ -293,8 +320,8 @@ mod tests {
         let mut s = fresh_storage();
         let a = ParticleId::from_entity(7, 0);
         let b = ParticleId::from_entity(7, 1); // same index, bumped gen
-        s.put(a, &Balance(111));
-        s.put(b, &Balance(222));
+        s.put(a, &Balance(111)).unwrap();
+        s.put(b, &Balance(222)).unwrap();
         assert_eq!(s.get::<Balance>(a), Some(Balance(111)));
         assert_eq!(s.get::<Balance>(b), Some(Balance(222)));
     }
@@ -302,9 +329,9 @@ mod tests {
     #[test]
     fn iter_visits_only_one_namespace() {
         let mut s = fresh_storage();
-        s.put(ParticleId::from_entity(10, 0), &Position { x: 1.0, y: 0.0, z: 0.0 });
-        s.put(ParticleId::from_entity(11, 0), &Position { x: 2.0, y: 0.0, z: 0.0 });
-        s.put(ParticleId::from_entity(12, 0), &Balance(42));
+        s.put(ParticleId::from_entity(10, 0), &Position { x: 1.0, y: 0.0, z: 0.0 }).unwrap();
+        s.put(ParticleId::from_entity(11, 0), &Position { x: 2.0, y: 0.0, z: 0.0 }).unwrap();
+        s.put(ParticleId::from_entity(12, 0), &Balance(42)).unwrap();
 
         let positions: Vec<_> = s.iter::<Position>().collect();
         assert_eq!(positions.len(), 2);
@@ -317,19 +344,19 @@ mod tests {
     fn get_mut_and_mark_dirty_path() {
         let mut s = fresh_storage();
         let p = ParticleId::from_entity(20, 0);
-        s.put(p, &Balance(10));
-        let _ = s.commit(); // clear dirty after initial put
+        s.put(p, &Balance(10)).unwrap();
+        s.commit().unwrap(); // clear dirty after initial put
 
         {
             let slice = s.get_mut_raw::<Balance>(p).expect("mem backend supports get_mut");
             // Bypass codec for low-level update.
             slice[0] = Goldilocks::new(999);
         }
-        s.mark_dirty::<Balance>(p);
+        s.mark_dirty::<Balance>(p).unwrap();
 
         // After mark_dirty, commit changes the root.
-        let root_a = s.commit();
-        let root_b = s.commit();
+        let root_a = s.commit().unwrap();
+        let root_b = s.commit().unwrap();
         assert_ne!(root_a, root_b, "mark_dirty after get_mut must affect commit");
         assert_eq!(s.get::<Balance>(p), Some(Balance(999)));
     }
@@ -339,7 +366,7 @@ mod tests {
         let caps = evy_platform_caps::PlatformCapabilities::probe();
         let mut s = ShardStorage::from_capabilities(&caps);
         let p = ParticleId::from_entity(42, 0);
-        s.put(p, &Position { x: 1.0, y: 2.0, z: 3.0 });
+        s.put(p, &Position { x: 1.0, y: 2.0, z: 3.0 }).unwrap();
         assert_eq!(s.get::<Position>(p), Some(Position { x: 1.0, y: 2.0, z: 3.0 }));
     }
 }

@@ -88,7 +88,9 @@ pub trait DispatchNode: Send {
     fn commit_policy(&self) -> CommitPolicy;
 
     /// Execute the node. Called by the scheduler in topo order.
-    fn dispatch(&mut self, ctx: &mut DispatchCtx<'_>);
+    /// An error stops dependent dispatch. Earlier staged writes remain visible
+    /// and must be handled by the caller's recovery policy.
+    fn dispatch(&mut self, ctx: &mut DispatchCtx<'_>) -> Result<(), crate::DispatchError>;
 
     /// Human-readable name for debugging and dispatch traces.
     fn label(&self) -> &str {

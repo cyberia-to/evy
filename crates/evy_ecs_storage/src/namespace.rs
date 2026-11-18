@@ -5,6 +5,9 @@ use bbg::storage::dim;
 /// Storage namespace for a component.
 ///
 /// 10 public BBG_poly dimensions + 2 private polynomials + 1 ephemeral.
+/// The dimension bytes are sparse, not a 0..13 run: bbg reserves dimension 12
+/// for `dim::INTENTS` (unsealed intent records), which evy does not wrap, so
+/// the thirteen namespaces occupy 0..=11 and 13.
 /// Authenticated namespaces (everything except [`Namespace::Ephemeral`])
 /// participate in BBG_root and emit zheng proofs at tick boundaries.
 /// Ephemeral writes never gossip to the network or contribute to BBG_root.
@@ -48,7 +51,12 @@ mod tests {
     #[test]
     fn dim_constants_align() {
         assert_eq!(Namespace::Particles.as_u8(), 0);
-        assert_eq!(Namespace::Ephemeral.as_u8(), 12);
+        // Ephemeral is 13, not 12, because bbg keeps dimension 12 for
+        // `dim::INTENTS` and evy has no namespace over it. Pinning bbg's two
+        // constants here makes a renumbering on bbg's side fail this test.
+        assert_eq!(dim::INTENTS, 12);
+        assert_eq!(dim::EPHEMERAL, 13);
+        assert_eq!(Namespace::Ephemeral.as_u8(), 13);
     }
 
     #[test]

@@ -56,17 +56,18 @@ impl DispatchNode for TickCounterNode {
         CommitPolicy::None
     }
 
-    fn dispatch(&mut self, ctx: &mut DispatchCtx<'_>) {
+    fn dispatch(&mut self, ctx: &mut DispatchCtx<'_>) -> Result<(), evy_engine_dispatch::DispatchError> {
         let next = ctx
             .storage
             .get::<GameState>(self.particle)
             .map(|s| s.tick + 1)
             .unwrap_or(0);
-        ctx.storage.put(self.particle, &GameState { tick: next });
+        ctx.storage.put(self.particle, &GameState { tick: next })?;
+        Ok(())
     }
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("evy hello — building engine...");
     let mut engine = Engine::builder()
         .without_radio() // headless example; no networking
@@ -98,7 +99,7 @@ fn main() {
     // Run 5 frames.
     println!("\nrunning 5 frames...");
     for _ in 0..5 {
-        engine.run_frame().expect("dispatch");
+        engine.run_frame()?;
     }
     println!("  frame counter:    {}", engine.frame());
 
@@ -107,10 +108,11 @@ fn main() {
     println!("  particle tick:    {}", state.tick);
 
     // Commit at tick boundary.
-    let root = engine.commit_tick();
-    println!("\ntick committed, shard sub-root = {:02x}{:02x}{:02x}{:02x}…",
+    let root = engine.commit_tick()?;
+    println!("\ntick committed, storage change identity = {:02x}{:02x}{:02x}{:02x}…",
         root[0], root[1], root[2], root[3]);
     println!("  tick counter:     {}", engine.tick());
 
     println!("\ndone.");
+    Ok(())
 }
