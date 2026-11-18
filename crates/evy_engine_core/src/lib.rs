@@ -32,7 +32,8 @@ pub use engine::Engine;
 // and get everything they need.
 pub use evy_diagnostic::{Diagnostic, PmuProbe, ProbeMode, SystemMetrics, Timer};
 pub use evy_ecs_storage::{
-    EvyComponent, Goldilocks, GoldilocksCodec, Namespace, ParticleId, ShardStorage,
+    EvyComponent, Goldilocks, GoldilocksCodec, Namespace, ParticleId, ScanLimits, ShardStorage,
+    StorageError, StorageResult,
 };
 pub use evy_engine_dispatch::{
     AccessSet, CommitPolicy, DispatchCtx, DispatchError, DispatchNode, DispatchScheduler, Engine as EngineKind,

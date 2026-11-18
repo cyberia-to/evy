@@ -52,7 +52,9 @@ cargo test --offline --manifest-path ($verification | path join Cargo.toml) -p e
 ```
 
 The executed workspace was `/tmp/evy-fallible.3pLdvR`. After its initial dependency
-resolution, the final command also used `--locked`. On macOS arm64 it passed:
+resolution, the final command also used `--locked`. On macOS arm64 it passed, at
+branch content c29fed9e29914105f69fbfc9769b2da50ee06474 — the commit that
+introduced both this change and this page:
 
 | Package | Unit tests |
 |---|---:|
@@ -68,6 +70,14 @@ The hello example compiled as a test target. Four new regressions cover:
 - Unknown commit outcome reaches the engine caller without incrementing tick.
 - Failed dispatch stops subsequent nodes and does not increment frame.
 
-Existing dependency warnings and the scheduler test's unused ParticleId import
-remain. This evidence covers consumer API propagation; disk recovery and native
-Cyber node persistence belong to BBG/Cybergraph's separate acceptance gates.
+Existing dependency warnings remain. This evidence covers consumer API
+propagation; disk recovery and native Cyber node persistence belong to
+BBG/Cybergraph's separate acceptance gates.
+
+The review-close commit that follows c29fed9 adds a dispatch test for the pool
+release on the error path, forwards `read` and `scan` in the engine test double,
+and moves the scheduler test module into `scheduler_tests.rs`, so the table
+above no longer counts the head. It was not re-run: the review clone carries no
+sibling `bbg`, `honeycrisp` or `strata` checkout, so `bbg = { path =
+"../bbg/rs" }` does not resolve there and neither the workspace nor
+`verify-storage-consumer.nu` can build. The build gate judges that commit.

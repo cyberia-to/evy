@@ -1,5 +1,5 @@
 use super::*;
-use bbg::storage::{MemStore, ShardStore};
+use bbg::storage::{MemStore, ScanLimits, ShardEntry, ShardStore};
 use evy_ecs_storage::{Goldilocks, StorageError, StorageResult};
 use evy_engine_dispatch::{CommitPolicy, Engine as EngineKind, ShardRef};
 use std::sync::{
@@ -32,6 +32,22 @@ impl ShardStore for UnknownCommit {
     }
     fn remove(&mut self, d: u8, key: &[u8; 32]) -> StorageResult<Option<Vec<Goldilocks>>> {
         self.0.remove(d, key)
+    }
+    fn read(
+        &self,
+        d: u8,
+        key: &[u8; 32],
+        max_elements: usize,
+    ) -> StorageResult<Option<Vec<Goldilocks>>> {
+        self.0.read(d, key, max_elements)
+    }
+    fn scan(
+        &self,
+        d: u8,
+        after: Option<[u8; 32]>,
+        limits: ScanLimits,
+    ) -> StorageResult<Vec<ShardEntry>> {
+        self.0.scan(d, after, limits)
     }
     fn iter(&self, d: u8) -> Box<dyn Iterator<Item = (&[u8; 32], &[Goldilocks])> + '_> {
         self.0.iter(d)

@@ -331,7 +331,7 @@ trait DispatchNode {
     fn engine(&self) -> Engine;
     fn reads(&self) -> &[ShardRef];
     fn writes(&self) -> &[ShardRef];
-    fn dispatch(&mut self, ctx: &mut DispatchCtx);
+    fn dispatch(&mut self, ctx: &mut DispatchCtx) -> Result<(), DispatchError>;
     fn commit_policy(&self) -> CommitPolicy;
 }
 
