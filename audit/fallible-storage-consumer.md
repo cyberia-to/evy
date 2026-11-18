@@ -74,10 +74,18 @@ Existing dependency warnings remain. This evidence covers consumer API
 propagation; disk recovery and native Cyber node persistence belong to
 BBG/Cybergraph's separate acceptance gates.
 
-The review-close commit that follows c29fed9 adds a dispatch test for the pool
-release on the error path, forwards `read` and `scan` in the engine test double,
-and moves the scheduler test module into `scheduler_tests.rs`, so the table
-above no longer counts the head. It was not re-run: the review clone carries no
-sibling `bbg`, `honeycrisp` or `strata` checkout, so `bbg = { path =
+The review-close commits that follow c29fed9 add a dispatch test for the pool
+release on the error path, forward `read` and `scan` in the engine test double,
+move the scheduler test module into `scheduler_tests.rs`, and add the §6.1 spec
+listing and the re-exports in both crates' `lib.rs`, so the table above no
+longer counts the head. That delta was not re-run: the working clones carry no
+sibling `bbg`, `honeycrisp`, `hemera` or `strata` checkout, so `bbg = { path =
 "../bbg/rs" }` does not resolve there and neither the workspace nor
-`verify-storage-consumer.nu` can build. The build gate judges that commit.
+`verify-storage-consumer.nu` can build.
+
+No gate judges this head either: `ci`, `build` and `use` are all off for this
+repository. The merge candidate is therefore unverified — nothing has compiled
+the head commit, and the counts above belong to c29fed9 alone. Whoever takes it
+should run the two commands of the Reproduce block in a checkout that holds the
+sibling `bbg`, `honeycrisp`, `hemera` and `strata` repositories and record the
+head hash beside the counts.
